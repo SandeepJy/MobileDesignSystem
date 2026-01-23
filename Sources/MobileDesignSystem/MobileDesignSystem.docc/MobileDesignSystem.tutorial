@@ -1,0 +1,23 @@
+@Metadata {
+    @TechnologyRoot
+}
+
+# MobileDesignSystem
+
+Learn how to use MobileDesignSystem components in your iOS applications.
+
+## Overview
+
+MobileDesignSystem provides reusable SwiftUI components for building consistent iOS user interfaces.
+
+## Topics
+
+### Essentials
+
+- <doc:GettingStarted>
+- <doc:Examples>
+
+### Components
+
+- ``MDSTextView``
+- ``MDSInputField``

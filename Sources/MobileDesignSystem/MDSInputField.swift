@@ -335,7 +335,80 @@ public class MDSInputFieldUIKit: UIView {
 
 // MARK: - SwiftUI Wrapper
 
-/// A SwiftUI view that wraps a UIKit input control from the Mobile Design System
+/// A SwiftUI view that wraps a UIKit text field with enhanced styling and focus states.
+///
+/// `MDSInputField` provides a SwiftUI interface to a UIKit `UITextField`, offering
+/// customizable styling, focus animations, and callback support while maintaining
+/// native iOS text input behavior.
+///
+/// ## Topics
+///
+/// ### Creating an Input Field
+/// - ``init(text:)``
+///
+/// ### Styling
+/// - ``placeholder(_:)``
+/// - ``font(_:)``
+/// - ``font(size:weight:)``
+/// - ``textColor(_:)``
+/// - ``placeholderColor(_:)``
+/// - ``textAlignment(_:)``
+/// - ``inputBackgroundColor(_:)``
+/// - ``cornerRadius(_:)``
+/// - ``borderWidth(_:)``
+/// - ``borderColor(_:)``
+/// - ``focusedBorderColor(_:)``
+/// - ``leftPadding(_:)``
+/// - ``rightPadding(_:)``
+///
+/// ### Behavior
+/// - ``keyboardType(_:)``
+/// - ``isSecureTextEntry(_:)``
+/// - ``isEnabled(_:)``
+///
+/// ### Callbacks
+/// - ``onTextChange(_:)``
+/// - ``onEditingBegan(_:)``
+/// - ``onEditingEnded(_:)``
+///
+/// ## Examples
+///
+/// ### Basic Input Field
+/// ```swift
+/// @State private var text = ""
+///
+/// MDSInputField(text: $text)
+///     .placeholder("Enter your name")
+///     .font(size: 16)
+///     .cornerRadius(8)
+///     .borderWidth(1)
+///     .borderColor(.separator)
+/// ```
+///
+/// ### Password Field
+/// ```swift
+/// @State private var password = ""
+///
+/// MDSInputField(text: $password)
+///     .placeholder("Password")
+///     .isSecureTextEntry(true)
+///     .keyboardType(.default)
+/// ```
+///
+/// ### Email Input with Callbacks
+/// ```swift
+/// @State private var email = ""
+///
+/// MDSInputField(text: $email)
+///     .placeholder("Email")
+///     .keyboardType(.emailAddress)
+///     .onTextChange { newText in
+///         print("Email changed: \(newText)")
+///     }
+///     .onEditingBegan {
+///         print("Editing started")
+///     }
+/// ```
 public struct MDSInputField: UIViewRepresentable {
     
     // MARK: - Properties
@@ -399,8 +472,20 @@ public struct MDSInputField: UIViewRepresentable {
     
     // MARK: - Initialization
     
-    /// Initializes a new MDSInputField with a binding to text
-    /// - Parameter text: Binding to the text content
+    /// Creates a new input field with a binding to the text content.
+    ///
+    /// Use this initializer to create an input field that allows users to enter and edit text.
+    /// The text binding provides two-way data flow between your view and the input field.
+    ///
+    /// - Parameter text: A binding to the text content that will be displayed and can be edited.
+    ///
+    /// ## Example
+    /// ```swift
+    /// @State private var username = ""
+    ///
+    /// MDSInputField(text: $username)
+    ///     .placeholder("Username")
+    /// ```
     public init(text: Binding<String>) {
         self._text = text
         self.placeholder = nil
@@ -520,21 +605,50 @@ public struct MDSInputField: UIViewRepresentable {
     
     // MARK: - Modifiers
     
-    /// Sets the placeholder text
+    /// Sets the placeholder text displayed when the field is empty.
+    ///
+    /// - Parameter placeholder: The placeholder text to display. Pass `nil` to remove the placeholder.
+    /// - Returns: A modified input field with the specified placeholder.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .placeholder("Enter your email")
+    /// ```
     public func placeholder(_ placeholder: String?) -> MDSInputField {
         var view = self
         view.placeholder = placeholder
         return view
     }
     
-    /// Sets the font using UIFont
+    /// Sets the font using a UIKit font.
+    ///
+    /// - Parameter font: The UIKit font to use. Pass `nil` to use the system default.
+    /// - Returns: A modified input field with the specified font.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .font(UIFont.systemFont(ofSize: 18, weight: .semibold))
+    /// ```
     public func font(_ font: UIFont?) -> MDSInputField {
         var view = self
         view.font = font
         return view
     }
     
-    /// Sets the font using SwiftUI Font
+    /// Sets the font using a SwiftUI font.
+    ///
+    /// - Parameter font: The SwiftUI font to use. Pass `nil` to use the system default.
+    /// - Returns: A modified input field with the specified font.
+    ///
+    /// - Note: This method converts SwiftUI fonts to UIKit fonts. For more control, use ``font(_:)`` with `UIFont`.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .font(.system(size: 16))
+    /// ```
     public func font(_ font: Font?) -> MDSInputField {
         var view = self
         // Convert SwiftUI Font to UIFont
@@ -549,119 +663,292 @@ public struct MDSInputField: UIViewRepresentable {
         return view
     }
     
-    /// Sets the font with size
+    /// Sets the font using a system font with the specified size and weight.
+    ///
+    /// This is a convenience method for quickly setting a system font without creating a `UIFont` instance.
+    ///
+    /// - Parameters:
+    ///   - size: The font size in points.
+    ///   - weight: The font weight. Defaults to `.regular`.
+    /// - Returns: A modified input field with the specified font.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .font(size: 18, weight: .semibold)
+    /// ```
     public func font(size: CGFloat, weight: UIFont.Weight = .regular) -> MDSInputField {
         var view = self
         view.font = UIFont.systemFont(ofSize: size, weight: weight)
         return view
     }
     
-    /// Sets the text color
+    /// Sets the color of the text entered by the user.
+    ///
+    /// - Parameter color: The UIKit color to use for the text. Pass `nil` to use the system default.
+    /// - Returns: A modified input field with the specified text color.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .textColor(.label)
+    /// ```
     public func textColor(_ color: UIColor?) -> MDSInputField {
         var view = self
         view.textColor = color
         return view
     }
     
-    /// Sets the placeholder color
+    /// Sets the color of the placeholder text.
+    ///
+    /// - Parameter color: The UIKit color to use for the placeholder text.
+    /// - Returns: A modified input field with the specified placeholder color.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .placeholder("Enter text")
+    ///     .placeholderColor(.systemGray)
+    /// ```
     public func placeholderColor(_ color: UIColor) -> MDSInputField {
         var view = self
         view.placeholderColor = color
         return view
     }
     
-    /// Sets the text alignment
+    /// Sets the alignment of the text within the input field.
+    ///
+    /// - Parameter alignment: The text alignment (`.left`, `.center`, `.right`, `.justified`, or `.natural`).
+    /// - Returns: A modified input field with the specified text alignment.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .textAlignment(.center)
+    /// ```
     public func textAlignment(_ alignment: NSTextAlignment) -> MDSInputField {
         var view = self
         view.textAlignment = alignment
         return view
     }
     
-    /// Sets the keyboard type
+    /// Sets the type of keyboard displayed when the field becomes first responder.
+    ///
+    /// - Parameter type: The keyboard type (e.g., `.emailAddress`, `.phonePad`, `.numberPad`).
+    /// - Returns: A modified input field with the specified keyboard type.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $email)
+    ///     .keyboardType(.emailAddress)
+    /// ```
     public func keyboardType(_ type: UIKeyboardType) -> MDSInputField {
         var view = self
         view.keyboardType = type
         return view
     }
     
-    /// Sets whether the input is secure (for passwords)
+    /// Sets whether the input field hides the text (for password fields).
+    ///
+    /// - Parameter secure: A Boolean value that determines whether text is hidden. `true` for passwords.
+    /// - Returns: A modified input field with the specified secure text entry setting.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $password)
+    ///     .isSecureTextEntry(true)
+    /// ```
     public func isSecureTextEntry(_ secure: Bool) -> MDSInputField {
         var view = self
         view.isSecureTextEntry = secure
         return view
     }
     
-    /// Sets whether the input is enabled
+    /// Sets whether the input field is enabled and can receive user input.
+    ///
+    /// - Parameter enabled: A Boolean value that determines whether the field is enabled.
+    /// - Returns: A modified input field with the specified enabled state.
+    ///
+    /// - Note: Disabled fields appear dimmed and cannot be edited.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .isEnabled(false)
+    /// ```
     public func isEnabled(_ enabled: Bool) -> MDSInputField {
         var view = self
         view.isEnabled = enabled
         return view
     }
     
-    /// Sets the background color
+    /// Sets the background color of the input field.
+    ///
+    /// - Parameter color: The UIKit color to use for the background. Pass `nil` to use the system default.
+    /// - Returns: A modified input field with the specified background color.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .inputBackgroundColor(.systemGray6)
+    /// ```
     public func inputBackgroundColor(_ color: UIColor?) -> MDSInputField {
         var view = self
         view.inputBackgroundColor = color
         return view
     }
     
-    /// Sets the corner radius
+    /// Sets the corner radius of the input field.
+    ///
+    /// - Parameter radius: The corner radius in points. Use `0` for square corners.
+    /// - Returns: A modified input field with the specified corner radius.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .cornerRadius(12)
+    /// ```
     public func cornerRadius(_ radius: CGFloat) -> MDSInputField {
         var view = self
         view.cornerRadius = radius
         return view
     }
     
-    /// Sets the border width
+    /// Sets the width of the border around the input field.
+    ///
+    /// - Parameter width: The border width in points. Use `0` to remove the border.
+    /// - Returns: A modified input field with the specified border width.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .borderWidth(2)
+    /// ```
     public func borderWidth(_ width: CGFloat) -> MDSInputField {
         var view = self
         view.borderWidth = width
         return view
     }
     
-    /// Sets the border color
+    /// Sets the color of the border around the input field.
+    ///
+    /// - Parameter color: The UIKit color to use for the border.
+    /// - Returns: A modified input field with the specified border color.
+    ///
+    /// - Note: The border width must be greater than 0 for the border to be visible.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .borderWidth(1)
+    ///     .borderColor(.separator)
+    /// ```
     public func borderColor(_ color: UIColor) -> MDSInputField {
         var view = self
         view.borderColor = color
         return view
     }
     
-    /// Sets the focused border color
+    /// Sets the color of the border when the input field is focused (first responder).
+    ///
+    /// The border color animates smoothly between the normal and focused states.
+    ///
+    /// - Parameter color: The UIKit color to use for the focused border.
+    /// - Returns: A modified input field with the specified focused border color.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .borderWidth(1)
+    ///     .borderColor(.separator)
+    ///     .focusedBorderColor(.systemBlue)
+    /// ```
     public func focusedBorderColor(_ color: UIColor) -> MDSInputField {
         var view = self
         view.focusedBorderColor = color
         return view
     }
     
-    /// Sets the left padding
+    /// Sets the left padding inset for the text content.
+    ///
+    /// - Parameter padding: The padding value in points to apply on the left side.
+    /// - Returns: A modified input field with the specified left padding.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .leftPadding(16)
+    /// ```
     public func leftPadding(_ padding: CGFloat) -> MDSInputField {
         var view = self
         view.leftPadding = padding
         return view
     }
     
-    /// Sets the right padding
+    /// Sets the right padding inset for the text content.
+    ///
+    /// - Parameter padding: The padding value in points to apply on the right side.
+    /// - Returns: A modified input field with the specified right padding.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .rightPadding(16)
+    /// ```
     public func rightPadding(_ padding: CGFloat) -> MDSInputField {
         var view = self
         view.rightPadding = padding
         return view
     }
     
-    /// Sets the callback for text changes
+    /// Sets a callback that is invoked whenever the text content changes.
+    ///
+    /// - Parameter callback: A closure that receives the new text value whenever it changes.
+    /// - Returns: A modified input field with the specified text change callback.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .onTextChange { newText in
+    ///         print("Text changed to: \(newText)")
+    ///     }
+    /// ```
     public func onTextChange(_ callback: @escaping (String) -> Void) -> MDSInputField {
         var view = self
         view.onTextChange = callback
         return view
     }
     
-    /// Sets the callback for when editing begins
+    /// Sets a callback that is invoked when the user begins editing the field.
+    ///
+    /// - Parameter callback: A closure that is called when editing begins (field becomes first responder).
+    /// - Returns: A modified input field with the specified editing began callback.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .onEditingBegan {
+    ///         print("User started editing")
+    ///     }
+    /// ```
     public func onEditingBegan(_ callback: @escaping () -> Void) -> MDSInputField {
         var view = self
         view.onEditingBegan = callback
         return view
     }
     
-    /// Sets the callback for when editing ends
+    /// Sets a callback that is invoked when the user finishes editing the field.
+    ///
+    /// - Parameter callback: A closure that is called when editing ends (field resigns first responder).
+    /// - Returns: A modified input field with the specified editing ended callback.
+    ///
+    /// ## Example
+    /// ```swift
+    /// MDSInputField(text: $text)
+    ///     .onEditingEnded {
+    ///         print("User finished editing")
+    ///     }
+    /// ```
     public func onEditingEnded(_ callback: @escaping () -> Void) -> MDSInputField {
         var view = self
         view.onEditingEnded = callback
