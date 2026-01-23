@@ -41,11 +41,29 @@ jobs:
 
       - name: Build DocC Documentation
         run: |
+          # Ensure the pipeline fails if xcodebuild fails
+          set -o pipefail
+
+          # Debug: show available destinations (helpful for CI troubleshooting)
+          echo "📋 Available destinations:"
+          xcodebuild -scheme "$SCHEME" -showdestinations 2>/dev/null \
+            | grep -E "Simulator|Generic" | head -10 || true
+
           xcodebuild docbuild \
             -scheme "$SCHEME" \
-            -destination "$PLATFORM" \
+            -destination 'generic/platform=iOS' \
             -derivedDataPath derivedData \
-            | xcpretty
+            2>&1 | xcpretty --color
+
+          # Verify archive was actually produced
+          ARCHIVE=$(find derivedData -name "${TARGET}.doccarchive" -type d | head -1)
+          if [ -z "$ARCHIVE" ]; then
+            echo "❌ .doccarchive not found!"
+            echo "Available archives:"
+            find derivedData -name "*.doccarchive" -type d
+            exit 1
+          fi
+          echo "✅ DocC archive: $ARCHIVE"
 
       - name: Transform DocC Archive for Static Hosting
         run: |
