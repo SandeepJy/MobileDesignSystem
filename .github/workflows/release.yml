@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., 1.0.0)'
+        required: true
+
+jobs:
+  build-release:
+    name: Build Release
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Select Xcode Version
+        run: sudo xcode-select -switch /Applications/Xcode.app/Contents/Developer
+      
+      - name: Get Version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Building version: ${VERSION}"
+      
+      - name: Build Package
+        run: swift build -c release
+      
+      - name: Test Package
+        run: swift test
+      
+      - name: Build for iOS Simulator
+        run: |
+          xcodebuild clean build \
+            -scheme MobileDesignSystem \
+            -destination "platform=iOS Simulator,name=iPhone 15,OS=latest" \
+            -configuration Release \
+            -skipPackagePluginValidation \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+      
+      - name: Create Release Archive
+        run: |
+          mkdir -p release
+          cp -r Sources release/
+          cp Package.swift release/
+          cp README.md release/
+          cd release
+          zip -r ../MobileDesignSystem-${{ steps.version.outputs.version }}.zip .
+          cd ..
+      
+      - name: Upload Release Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: MobileDesignSystem-${{ steps.version.outputs.version }}
+          path: MobileDesignSystem-*.zip

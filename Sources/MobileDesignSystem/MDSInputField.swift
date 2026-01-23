@@ -679,7 +679,7 @@ struct MDSInputField_Previews: PreviewProvider {
         VStack(spacing: 20) {
             MDSInputField(text: $text)
                 .placeholder("Enter your name")
-                .font(.systemFont(ofSize: 20))
+                .font(.systemFont(ofSize: 10))
                 .textColor(.label)
                 .cornerRadius(8)
                 .borderWidth(1)

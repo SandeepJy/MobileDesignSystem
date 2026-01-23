@@ -165,6 +165,7 @@ public struct MDSTextView: View {
             ScrollView {
                 Text(text)
                     .frame(maxWidth: .infinity, alignment: alignment)
+                    .border(.red)
                     .multilineTextAlignment(textAlignment)
             }
         } else {
