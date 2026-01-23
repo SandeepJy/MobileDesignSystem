@@ -1,0 +1,676 @@
+{
+  "builtTestProducts" : [
+    {
+      "binaryPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.xctest/Contents/MacOS/MobileDesignSystemPackageTests",
+      "packagePath" : "/Users/owner/coding/iOS/MobileDesignSystem",
+      "productName" : "MobileDesignSystemPackageTests"
+    }
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.MobileDesignSystem-arm64-apple-macosx26.0-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/sources",
+      "importPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/Sources/MobileDesignSystem/MDSInputField.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/Sources/MobileDesignSystem/MDSTextView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/Sources/MobileDesignSystem/MobileDesignSystem.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "MobileDesignSystem",
+      "moduleOutputPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules/MobileDesignSystem.swiftmodule",
+      "objects" : [
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/MDSInputField.swift.o",
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/MDSTextView.swift.o",
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/MobileDesignSystem.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx10.13",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j14",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/include/MobileDesignSystem-Swift.h",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "mobiledesignsystem"
+      ],
+      "outputFileMapPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/MDSInputField.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/MDSTextView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/MobileDesignSystem.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules/MobileDesignSystem.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/owner/coding/iOS/MobileDesignSystem/Sources/MobileDesignSystem/MDSInputField.swift",
+        "/Users/owner/coding/iOS/MobileDesignSystem/Sources/MobileDesignSystem/MDSTextView.swift",
+        "/Users/owner/coding/iOS/MobileDesignSystem/Sources/MobileDesignSystem/MobileDesignSystem.swift"
+      ],
+      "tempsPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.MobileDesignSystemPackageTests-arm64-apple-macosx26.0-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.build/sources",
+      "importPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.derived/runner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules/MobileDesignSystemTests.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "MobileDesignSystemPackageTests",
+      "moduleOutputPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules/MobileDesignSystemPackageTests.swiftmodule",
+      "objects" : [
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.build/runner.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx10.13",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j14",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.build/include/MobileDesignSystemPackageTests-Swift.h",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "mobiledesignsystem"
+      ],
+      "outputFileMapPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules/MobileDesignSystemPackageTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.derived/runner.swift"
+      ],
+      "tempsPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.MobileDesignSystemTests-arm64-apple-macosx26.0-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/sources",
+      "importPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/Tests/MobileDesignSystemTests/MobileDesignSystemTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules/MobileDesignSystem.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "MobileDesignSystemTests",
+      "moduleOutputPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules/MobileDesignSystemTests.swiftmodule",
+      "objects" : [
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/MobileDesignSystemTests.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j14",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "mobiledesignsystem"
+      ],
+      "outputFileMapPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/MobileDesignSystemTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules/MobileDesignSystemTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/owner/coding/iOS/MobileDesignSystem/Tests/MobileDesignSystemTests/MobileDesignSystemTests.swift"
+      ],
+      "tempsPath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "MobileDesignSystem" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "MobileDesignSystem",
+      "-package-name",
+      "mobiledesignsystem",
+      "-c",
+      "/Users/owner/coding/iOS/MobileDesignSystem/Sources/MobileDesignSystem/MDSInputField.swift",
+      "/Users/owner/coding/iOS/MobileDesignSystem/Sources/MobileDesignSystem/MDSTextView.swift",
+      "/Users/owner/coding/iOS/MobileDesignSystem/Sources/MobileDesignSystem/MobileDesignSystem.swift",
+      "-I",
+      "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx10.13",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j14",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/include/MobileDesignSystem-Swift.h",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "mobiledesignsystem",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "MobileDesignSystemPackageTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "MobileDesignSystemPackageTests",
+      "-package-name",
+      "mobiledesignsystem",
+      "-c",
+      "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.derived/runner.swift",
+      "-I",
+      "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx10.13",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j14",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.build/include/MobileDesignSystemPackageTests-Swift.h",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "mobiledesignsystem",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "MobileDesignSystemTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "MobileDesignSystemTests",
+      "-package-name",
+      "mobiledesignsystem",
+      "-c",
+      "/Users/owner/coding/iOS/MobileDesignSystem/Tests/MobileDesignSystemTests/MobileDesignSystemTests.swift",
+      "-I",
+      "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j14",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "mobiledesignsystem",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "MobileDesignSystem" : [
+
+    ],
+    "MobileDesignSystemPackageTests" : [
+      "MobileDesignSystemTests",
+      "MobileDesignSystem"
+    ],
+    "MobileDesignSystemTests" : [
+      "MobileDesignSystem"
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+    "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.derived/runner.swift" : {
+      "inputs" : [
+
+      ],
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.derived/runner.swift"
+        }
+      ]
+    }
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/Sources/MobileDesignSystem/MDSInputField.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/Sources/MobileDesignSystem/MDSTextView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/Sources/MobileDesignSystem/MobileDesignSystem.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/sources"
+    },
+    "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.derived/runner.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.build/sources"
+    },
+    "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/MDSInputField.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/MDSTextView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystem.build/MobileDesignSystem.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/MobileDesignSystemTests.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemPackageTests.product/Objects.LinkFileList"
+    },
+    "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/owner/coding/iOS/MobileDesignSystem/Tests/MobileDesignSystemTests/MobileDesignSystemTests.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/sources"
+    },
+    "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}

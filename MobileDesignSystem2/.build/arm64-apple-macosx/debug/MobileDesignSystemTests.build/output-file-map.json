@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/master.swiftdeps"
+  },
+  "/Users/owner/coding/iOS/MobileDesignSystem/Tests/MobileDesignSystemTests/MobileDesignSystemTests.swift": {
+    "dependencies": "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/MobileDesignSystemTests.d",
+    "object": "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/MobileDesignSystemTests.swift.o",
+    "swiftmodule": "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/MobileDesignSystemTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/MobileDesignSystemTests.swiftdeps",
+    "diagnostics": "/Users/owner/coding/iOS/MobileDesignSystem/.build/arm64-apple-macosx/debug/MobileDesignSystemTests.build/MobileDesignSystemTests.dia"
+  }
+}
