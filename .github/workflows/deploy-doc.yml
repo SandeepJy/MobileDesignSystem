@@ -1,0 +1,135 @@
+name: Deploy DocC to GitHub Pages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: # Allows manual trigger
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs-deployment
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: macos-15
+
+    env:
+      # ─── CONFIGURE THESE ───────────────────────────────────
+      SCHEME: "DesignSystemExamples" # Your Xcode scheme name
+      TARGET: "DesignSystemExamples" # Your module/target name
+      PLATFORM: "iOS Simulator, arch:arm64, id:B45C26BF-195E-4CE3-8460-80381FCDBFCC, OS:18.5, name:iPhone 16"
+      # ────────────────────────────────────────────────────────
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(cat version | tr -d '[:space:]')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "📦 Version: ${VERSION}"
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build DocC Documentation
+        run: |
+          xcodebuild docbuild \
+            -scheme "$SCHEME" \
+            -destination "$PLATFORM" \
+            -derivedDataPath derivedData \
+            | xcpretty
+
+      - name: Transform DocC Archive for Static Hosting
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          REPO="${{ github.event.repository.name }}"
+
+          # Locate the .doccarchive
+          ARCHIVE=$(find derivedData \
+            -name "${TARGET}.doccarchive" -type d | head -1)
+
+          if [ -z "$ARCHIVE" ]; then
+            echo "❌ .doccarchive not found for target '${TARGET}'"
+            echo "Available archives:"
+            find derivedData -name "*.doccarchive" -type d
+            exit 1
+          fi
+
+          echo "📄 Archive: $ARCHIVE"
+
+          # Convert to static site with versioned base path
+          $(xcrun --find docc) process-archive transform-for-static-hosting \
+            "$ARCHIVE" \
+            --output-path ./docs-output \
+            --hosting-base-path "${REPO}/${VERSION}"
+
+      - name: Fetch existing gh-pages
+        run: |
+          git fetch origin gh-pages --depth=1 2>/dev/null || true
+
+      - name: Prepare deployment directory
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          REPO="${{ github.event.repository.name }}"
+          TARGET_LOWER=$(echo "$TARGET" | tr '[:upper:]' '[:lower:]')
+
+          # Start from existing gh-pages content or empty
+          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+            git worktree add gh-pages origin/gh-pages
+          else
+            mkdir gh-pages
+          fi
+
+          # Prevent Jekyll processing
+          touch gh-pages/.nojekyll
+
+          # Copy versioned docs
+          rm -rf "gh-pages/${VERSION}"
+          cp -R ./docs-output "gh-pages/${VERSION}"
+
+          # Generate root index.html → redirects to latest version
+          cat > gh-pages/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=__BASE__">
+            <title>Documentation</title>
+          </head>
+          <body>
+            <p>Redirecting to <a href="__BASE__">latest documentation</a>…</p>
+          </body>
+          </html>
+          EOF
+
+          sed -i '' "s|__BASE__|/${REPO}/${VERSION}/documentation/${TARGET_LOWER}/|g" \
+            gh-pages/index.html
+
+          # Generate versions.json (lists all deployed versions)
+          echo "[]" > gh-pages/versions.json
+          for dir in gh-pages/*/; do
+            dir_name=$(basename "$dir")
+            # Skip non-semver directories
+            if [[ "$dir_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+              echo "$dir_name"
+            fi
+          done | sort -V | jq -R -s 'split("\n") | map(select(. != ""))' \
+            > gh-pages/versions.json
+
+          echo "📋 Deployed versions:"
+          cat gh-pages/versions.json
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./gh-pages
+          commit_message: "docs: deploy v${{ steps.version.outputs.version }}"
