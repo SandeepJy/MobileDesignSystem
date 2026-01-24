@@ -69,7 +69,7 @@ jobs:
       - name: Determine Simulator Destination
         id: destination
         run: |
-          # Find an available iOS Simulator
+          # Find an available iOS Simulator --
           DEST=$(xcodebuild -scheme "$SCHEME" -project DesignSystemExamples/DesignSystemExamples.xcodeproj -showdestinations 2>/dev/null \
             | grep "iOS Simulator" \
             | grep "name:iPhone" \
