@@ -12,15 +12,186 @@ concurrency:
   group: docs-deployment
   cancel-in-progress: false
 
+# jobs:
+#   build-and-deploy:
+#     runs-on: macos-15
+
+#     env:
+#       # ─── CONFIGURE THESE ───────────────────────────────────
+#       SCHEME: "DesignSystemExamples" # Your Xcode scheme name
+#       TARGET: "DesignSystemExamples" # Your module/target name
+#       PLATFORM: "iOS Simulator, arch:arm64, id:B45C26BF-195E-4CE3-8460-80381FCDBFCC, OS:18.5, name:iPhone 16"
+#       # ────────────────────────────────────────────────────────
+
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
+
+#       - name: Read version
+#         id: version
+#         run: |
+#           VERSION=$(cat version | tr -d '[:space:]')
+#           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+#           echo "📦 Version: ${VERSION}"
+
+#       - name: Setup Xcode
+#         uses: maxim-lobanov/setup-xcode@v1
+#         with:
+#           xcode-version: latest-stable
+
+#       # - name: Build DocC Documentation
+#       #   run: |
+#       #     # Ensure the pipeline fails if xcodebuild fails
+#       #     set -o pipefail
+
+#       #     # Debug: show available destinations (helpful for CI troubleshooting)
+#       #     echo "📋 Available destinations:"
+#       #     xcodebuild -scheme "$SCHEME" -showdestinations 2>/dev/null \
+#       #       | grep -E "Simulator|Generic" | head -10 || true
+
+#       #     xcodebuild docbuild \
+#       #       -scheme "$SCHEME" \
+#       #       -project DesignSystemExamples/DesignSystemExamples.xcodeproj \
+#       #       -destination 'platform=iOS Simulator,name=iPhone 16,arch=arm64,OS=18.5' \
+#       #       -derivedDataPath derivedData \
+#       #       2>&1 | xcpretty --color
+
+#       #     # Verify archive was actually produced
+#       #     ARCHIVE=$(find derivedData -name "${TARGET}.doccarchive" -type d | head -1)
+#       #     if [ -z "$ARCHIVE" ]; then
+#       #       echo "❌ .doccarchive not found!"
+#       #       echo "Available archives:"
+#       #       find derivedData -name "*.doccarchive" -type d
+#       #       exit 1
+#       #     fi
+#       #     echo "✅ DocC archive: $ARCHIVE"
+
+#       - name: Determine Simulator Destination
+#         id: destination
+#         run: |
+#           # Find an available iOS Simulator --
+#           DEST=$(xcodebuild -scheme "$SCHEME" -project DesignSystemExamples/DesignSystemExamples.xcodeproj -showdestinations 2>/dev/null \
+#             | grep "iOS Simulator" \
+#             | grep "name:iPhone" \
+#             | head -1 \
+#             | sed 's/.*{ //' | sed 's/ }$//' \
+#             | sed 's/: /=/g' | sed 's/, /,/g')
+
+#           if [ -z "$DEST" ]; then
+#             echo "❌ No iOS Simulator found"
+#             xcodebuild -scheme "$SCHEME" -showdestinations
+#             exit 1
+#           fi
+
+#           echo "destination=${DEST}" >> "$GITHUB_OUTPUT"
+#           echo "📱 Using: ${DEST}"
+
+#       - name: Build DocC Documentation
+#         run: |
+#           set -o pipefail
+
+#           xcodebuild docbuild \
+#             -scheme "$SCHEME" \
+#             -project DesignSystemExamples/DesignSystemExamples.xcodeproj \
+#             -destination '${{ steps.destination.outputs.destination }}' \
+#             -derivedDataPath derivedData \
+#             2>&1 | xcpretty --color
+
+#       - name: Transform DocC Archive for Static Hosting
+#         run: |
+#           VERSION="${{ steps.version.outputs.version }}"
+#           REPO="${{ github.event.repository.name }}"
+
+#           # Locate the .doccarchive
+#           ARCHIVE=$(find derivedData \
+#             -name "${TARGET}.doccarchive" -type d | head -1)
+
+#           if [ -z "$ARCHIVE" ]; then
+#             echo "❌ .doccarchive not found for target '${TARGET}'"
+#             echo "Available archives:"
+#             find derivedData -name "*.doccarchive" -type d
+#             exit 1
+#           fi
+
+#           echo "📄 Archive: $ARCHIVE"
+
+#           # Convert to static site with versioned base path
+#           $(xcrun --find docc) process-archive transform-for-static-hosting \
+#             "$ARCHIVE" \
+#             --output-path ./docs-output \
+#             --hosting-base-path "${REPO}/${VERSION}"
+
+#       - name: Fetch existing gh-pages
+#         run: |
+#           git fetch origin gh-pages --depth=1 2>/dev/null || true
+
+#       - name: Prepare deployment directory
+#         run: |
+#           VERSION="${{ steps.version.outputs.version }}"
+#           REPO="${{ github.event.repository.name }}"
+#           TARGET_LOWER=$(echo "$TARGET" | tr '[:upper:]' '[:lower:]')
+
+#           # Start from existing gh-pages content or empty
+#           if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+#             git worktree add gh-pages origin/gh-pages
+#           else
+#             mkdir gh-pages
+#           fi
+
+#           # Prevent Jekyll processing
+#           touch gh-pages/.nojekyll
+
+#           # Copy versioned docs
+#           rm -rf "gh-pages/${VERSION}"
+#           cp -R ./docs-output "gh-pages/${VERSION}"
+
+#           # Generate root index.html → redirects to latest version
+#           cat > gh-pages/index.html << 'EOF'
+#           <!DOCTYPE html>
+#           <html lang="en">
+#           <head>
+#             <meta charset="utf-8">
+#             <meta http-equiv="refresh" content="0; url=__BASE__">
+#             <title>Documentation</title>
+#           </head>
+#           <body>
+#             <p>Redirecting to <a href="__BASE__">latest documentation</a>…</p>
+#           </body>
+#           </html>
+#           EOF
+
+#           sed -i '' "s|__BASE__|/${REPO}/${VERSION}/documentation/${TARGET_LOWER}/|g" \
+#             gh-pages/index.html
+
+#           # Generate versions.json (lists all deployed versions)
+#           echo "[]" > gh-pages/versions.json
+#           for dir in gh-pages/*/; do
+#             dir_name=$(basename "$dir")
+#             # Skip non-semver directories
+#             if [[ "$dir_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+#               echo "$dir_name"
+#             fi
+#           done | sort -V | jq -R -s 'split("\n") | map(select(. != ""))' \
+#             > gh-pages/versions.json
+
+#           echo "📋 Deployed versions:"
+#           cat gh-pages/versions.json
+
+#       - name: Deploy to GitHub Pages
+#         uses: peaceiris/actions-gh-pages@v4
+#         with:
+#           github_token: ${{ secrets.GITHUB_TOKEN }}
+#           publish_dir: ./gh-pages
+#           commit_message: "docs: deploy v${{ steps.version.outputs.version }}"
+
 jobs:
   build-and-deploy:
     runs-on: macos-15
 
     env:
       # ─── CONFIGURE THESE ───────────────────────────────────
-      SCHEME: "DesignSystemExamples" # Your Xcode scheme name
-      TARGET: "DesignSystemExamples" # Your module/target name
-      PLATFORM: "iOS Simulator, arch:arm64, id:B45C26BF-195E-4CE3-8460-80381FCDBFCC, OS:18.5, name:iPhone 16"
+      SCHEME: "DesignSystemExamples"
+      TARGET: "DesignSystemExamples"
       # ────────────────────────────────────────────────────────
 
     steps:
@@ -39,147 +210,63 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      # - name: Build DocC Documentation
-      #   run: |
-      #     # Ensure the pipeline fails if xcodebuild fails
-      #     set -o pipefail
-
-      #     # Debug: show available destinations (helpful for CI troubleshooting)
-      #     echo "📋 Available destinations:"
-      #     xcodebuild -scheme "$SCHEME" -showdestinations 2>/dev/null \
-      #       | grep -E "Simulator|Generic" | head -10 || true
-
-      #     xcodebuild docbuild \
-      #       -scheme "$SCHEME" \
-      #       -project DesignSystemExamples/DesignSystemExamples.xcodeproj \
-      #       -destination 'platform=iOS Simulator,name=iPhone 16,arch=arm64,OS=18.5' \
-      #       -derivedDataPath derivedData \
-      #       2>&1 | xcpretty --color
-
-      #     # Verify archive was actually produced
-      #     ARCHIVE=$(find derivedData -name "${TARGET}.doccarchive" -type d | head -1)
-      #     if [ -z "$ARCHIVE" ]; then
-      #       echo "❌ .doccarchive not found!"
-      #       echo "Available archives:"
-      #       find derivedData -name "*.doccarchive" -type d
-      #       exit 1
-      #     fi
-      #     echo "✅ DocC archive: $ARCHIVE"
-
-      - name: Determine Simulator Destination
-        id: destination
+      - name: List available simulators
         run: |
-          # Find an available iOS Simulator --
-          DEST=$(xcodebuild -scheme "$SCHEME" -project DesignSystemExamples/DesignSystemExamples.xcodeproj -showdestinations 2>/dev/null \
-            | grep "iOS Simulator" \
-            | grep "name:iPhone" \
-            | head -1 \
-            | sed 's/.*{ //' | sed 's/ }$//' \
-            | sed 's/: /=/g' | sed 's/, /,/g')
-
-          if [ -z "$DEST" ]; then
-            echo "❌ No iOS Simulator found"
-            xcodebuild -scheme "$SCHEME" -showdestinations
-            exit 1
-          fi
-
-          echo "destination=${DEST}" >> "$GITHUB_OUTPUT"
-          echo "📱 Using: ${DEST}"
+          xcrun simctl list devices available | head -30
 
       - name: Build DocC Documentation
         run: |
-          set -o pipefail
+          set -o pipefail  # Ensures pipe failures are caught
 
           xcodebuild docbuild \
             -scheme "$SCHEME" \
-            -project DesignSystemExamples/DesignSystemExamples.xcodeproj \
-            -destination '${{ steps.destination.outputs.destination }}' \
+            -destination "generic/platform=iOS Simulator" \
             -derivedDataPath derivedData \
-            2>&1 | xcpretty --color
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build.log | xcpretty
+
+          echo "✅ DocC build succeeded"
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+
+      - name: Find and verify .doccarchive
+        id: archive
+        run: |
+          echo "🔍 Searching for .doccarchive..."
+
+          ARCHIVE=$(find derivedData -name "*.doccarchive" -type d | head -1)
+
+          if [ -z "$ARCHIVE" ]; then
+            echo "❌ No .doccarchive found!"
+            echo ""
+            echo "📁 derivedData contents:"
+            find derivedData -type d -name "*.doccarchive" 2>/dev/null || true
+            find derivedData -type d | head -50
+            exit 1
+          fi
+
+          echo "✅ Found archive: $ARCHIVE"
+          echo "archive_path=${ARCHIVE}" >> "$GITHUB_OUTPUT"
 
       - name: Transform DocC Archive for Static Hosting
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           REPO="${{ github.event.repository.name }}"
+          ARCHIVE="${{ steps.archive.outputs.archive_path }}"
 
-          # Locate the .doccarchive
-          ARCHIVE=$(find derivedData \
-            -name "${TARGET}.doccarchive" -type d | head -1)
+          echo "📄 Transforming: $ARCHIVE"
+          echo "📦 Version: $VERSION"
+          echo "🔗 Base path: ${REPO}/${VERSION}"
 
-          if [ -z "$ARCHIVE" ]; then
-            echo "❌ .doccarchive not found for target '${TARGET}'"
-            echo "Available archives:"
-            find derivedData -name "*.doccarchive" -type d
-            exit 1
-          fi
-
-          echo "📄 Archive: $ARCHIVE"
-
-          # Convert to static site with versioned base path
           $(xcrun --find docc) process-archive transform-for-static-hosting \
             "$ARCHIVE" \
             --output-path ./docs-output \
             --hosting-base-path "${REPO}/${VERSION}"
 
-      - name: Fetch existing gh-pages
-        run: |
-          git fetch origin gh-pages --depth=1 2>/dev/null || true
-
-      - name: Prepare deployment directory
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          REPO="${{ github.event.repository.name }}"
-          TARGET_LOWER=$(echo "$TARGET" | tr '[:upper:]' '[:lower:]')
-
-          # Start from existing gh-pages content or empty
-          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
-            git worktree add gh-pages origin/gh-pages
-          else
-            mkdir gh-pages
-          fi
-
-          # Prevent Jekyll processing
-          touch gh-pages/.nojekyll
-
-          # Copy versioned docs
-          rm -rf "gh-pages/${VERSION}"
-          cp -R ./docs-output "gh-pages/${VERSION}"
-
-          # Generate root index.html → redirects to latest version
-          cat > gh-pages/index.html << 'EOF'
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="utf-8">
-            <meta http-equiv="refresh" content="0; url=__BASE__">
-            <title>Documentation</title>
-          </head>
-          <body>
-            <p>Redirecting to <a href="__BASE__">latest documentation</a>…</p>
-          </body>
-          </html>
-          EOF
-
-          sed -i '' "s|__BASE__|/${REPO}/${VERSION}/documentation/${TARGET_LOWER}/|g" \
-            gh-pages/index.html
-
-          # Generate versions.json (lists all deployed versions)
-          echo "[]" > gh-pages/versions.json
-          for dir in gh-pages/*/; do
-            dir_name=$(basename "$dir")
-            # Skip non-semver directories
-            if [[ "$dir_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-              echo "$dir_name"
-            fi
-          done | sort -V | jq -R -s 'split("\n") | map(select(. != ""))' \
-            > gh-pages/versions.json
-
-          echo "📋 Deployed versions:"
-          cat gh-pages/versions.json
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./gh-pages
-          commit_message: "docs: deploy v${{ steps.version.outputs.version }}"
+          echo "✅ Transformation complete"
+          ls -la ./docs-output/
