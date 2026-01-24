@@ -39,32 +39,63 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      # - name: Build DocC Documentation
+      #   run: |
+      #     # Ensure the pipeline fails if xcodebuild fails
+      #     set -o pipefail
+
+      #     # Debug: show available destinations (helpful for CI troubleshooting)
+      #     echo "📋 Available destinations:"
+      #     xcodebuild -scheme "$SCHEME" -showdestinations 2>/dev/null \
+      #       | grep -E "Simulator|Generic" | head -10 || true
+
+      #     xcodebuild docbuild \
+      #       -scheme "$SCHEME" \
+      #       -project DesignSystemExamples/DesignSystemExamples.xcodeproj \
+      #       -destination 'platform=iOS Simulator,name=iPhone 16,arch=arm64,OS=18.5' \
+      #       -derivedDataPath derivedData \
+      #       2>&1 | xcpretty --color
+
+      #     # Verify archive was actually produced
+      #     ARCHIVE=$(find derivedData -name "${TARGET}.doccarchive" -type d | head -1)
+      #     if [ -z "$ARCHIVE" ]; then
+      #       echo "❌ .doccarchive not found!"
+      #       echo "Available archives:"
+      #       find derivedData -name "*.doccarchive" -type d
+      #       exit 1
+      #     fi
+      #     echo "✅ DocC archive: $ARCHIVE"
+
+      - name: Determine Simulator Destination
+        id: destination
+        run: |
+          # Find an available iOS Simulator
+          DEST=$(xcodebuild -scheme "$SCHEME" -showdestinations 2>/dev/null \
+            | grep "iOS Simulator" \
+            | grep "name:iPhone" \
+            | head -1 \
+            | sed 's/.*{ //' | sed 's/ }$//' \
+            | sed 's/: /=/g' | sed 's/, /,/g')
+
+          if [ -z "$DEST" ]; then
+            echo "❌ No iOS Simulator found"
+            xcodebuild -scheme "$SCHEME" -showdestinations
+            exit 1
+          fi
+
+          echo "destination=${DEST}" >> "$GITHUB_OUTPUT"
+          echo "📱 Using: ${DEST}"
+
       - name: Build DocC Documentation
         run: |
-          # Ensure the pipeline fails if xcodebuild fails
           set -o pipefail
-
-          # Debug: show available destinations (helpful for CI troubleshooting)
-          echo "📋 Available destinations:"
-          xcodebuild -scheme "$SCHEME" -showdestinations 2>/dev/null \
-            | grep -E "Simulator|Generic" | head -10 || true
 
           xcodebuild docbuild \
             -scheme "$SCHEME" \
             -project DesignSystemExamples/DesignSystemExamples.xcodeproj \
-            -destination 'platform=iOS Simulator,name=iPhone 16,arch=arm64,OS=18.5' \
+            -destination '${{ steps.destination.outputs.destination }}' \
             -derivedDataPath derivedData \
             2>&1 | xcpretty --color
-
-          # Verify archive was actually produced
-          ARCHIVE=$(find derivedData -name "${TARGET}.doccarchive" -type d | head -1)
-          if [ -z "$ARCHIVE" ]; then
-            echo "❌ .doccarchive not found!"
-            echo "Available archives:"
-            find derivedData -name "*.doccarchive" -type d
-            exit 1
-          fi
-          echo "✅ DocC archive: $ARCHIVE"
 
       - name: Transform DocC Archive for Static Hosting
         run: |
