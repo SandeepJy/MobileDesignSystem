@@ -5,11 +5,10 @@ on:
     types: [published]
   workflow_dispatch:
 
-# Required permissions for OIDC token and Pages deployment
 permissions:
-  contents: write # To update gh-pages branch
-  pages: write # To deploy to Pages
-  id-token: write # For OIDC authentication
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: pages
@@ -26,18 +25,32 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Read version
         id: version
         run: |
           VERSION=$(cat version | tr -d '[:space:]')
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "📦 Version: ${VERSION}"
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+
+      - name: Download previous documentation versions
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: ./site
+        continue-on-error: true # First run won't have gh-pages
+
+      - name: Initialize site directory
+        run: |
+          mkdir -p ./site
+          touch ./site/.nojekyll
 
       - name: Build DocC Documentation
         run: |
@@ -49,141 +62,30 @@ jobs:
             -destination "generic/platform=iOS Simulator" \
             -derivedDataPath derivedData \
             CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee build.log | xcpretty
+            2>&1 | xcpretty
 
-          echo "✅ DocC build succeeded"
-
-      - name: Upload build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-
-      - name: Find .doccarchive
-        id: archive
-        run: |
-          ARCHIVE=$(find derivedData -name "*.doccarchive" -type d | head -1)
-
-          if [ -z "$ARCHIVE" ]; then
-            echo "❌ No .doccarchive found!"
-            find derivedData -type d | head -50
-            exit 1
-          fi
-
-          echo "✅ Found archive: $ARCHIVE"
-          echo "archive_path=${ARCHIVE}" >> "$GITHUB_OUTPUT"
-
-      - name: Transform DocC Archive for Static Hosting
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          REPO="${{ github.event.repository.name }}"
-          ARCHIVE="${{ steps.archive.outputs.archive_path }}"
-
-          $(xcrun --find docc) process-archive transform-for-static-hosting \
-            "$ARCHIVE" \
-            --output-path ./docs-version \
-            --hosting-base-path "${REPO}/${VERSION}"
-
-      - name: Fetch existing documentation versions
-        run: |
-          git fetch origin gh-pages --depth=1 2>/dev/null || true
-
-          if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
-            echo "📚 Found existing gh-pages branch"
-            git worktree add ./site origin/gh-pages
-          else
-            echo "📝 No existing gh-pages branch, starting fresh"
-            mkdir ./site
-          fi
-
-      - name: Assemble complete documentation site
+      - name: Transform and assemble
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           REPO="${{ github.event.repository.name }}"
           TARGET_LOWER=$(echo "$TARGET" | tr '[:upper:]' '[:lower:]')
 
-          # Prevent Jekyll processing
-          touch ./site/.nojekyll
+          ARCHIVE=$(find derivedData -name "*.doccarchive" -type d | head -1)
 
-          # Remove old version if exists (allows re-running for same version)
-          rm -rf "./site/${VERSION}"
+          $(xcrun --find docc) process-archive transform-for-static-hosting \
+            "$ARCHIVE" \
+            --output-path "./site/${VERSION}" \
+            --hosting-base-path "${REPO}/${VERSION}"
 
-          # Copy new version
-          cp -R ./docs-version "./site/${VERSION}"
-
-          # Generate root index.html redirect
+          # Update index.html to point to latest
           cat > ./site/index.html << EOF
           <!DOCTYPE html>
-          <html lang="en">
+          <html>
           <head>
-            <meta charset="utf-8">
             <meta http-equiv="refresh" content="0; url=/${REPO}/${VERSION}/documentation/${TARGET_LOWER}/">
-            <title>Documentation</title>
           </head>
-          <body>
-            <p>Redirecting to <a href="/${REPO}/${VERSION}/documentation/${TARGET_LOWER}/">latest documentation</a>…</p>
-          </body>
           </html>
           EOF
-
-          # Generate versions.json
-          echo "[]" > ./site/versions.json
-          for dir in ./site/*/; do
-            dir_name=$(basename "$dir")
-            if [[ "$dir_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-              echo "$dir_name"
-            fi
-          done | sort -V | jq -R -s 'split("\n") | map(select(. != ""))' \
-            > ./site/versions.json
-
-          echo "📋 All versions:"
-          cat ./site/versions.json
-
-          echo ""
-          echo "📁 Site structure:"
-          ls -la ./site/
-
-      - name: Upload documentation artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: documentation-site
-          path: ./site
-          retention-days: 1
-
-      - name: Update gh-pages branch (backup)
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-
-          cd ./site
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # If this is a fresh site (no git history), initialize it
-          if [ ! -d ".git" ]; then
-            git init
-            git checkout -b gh-pages
-            git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-          fi
-
-          git add -A
-          git commit -m "docs: update documentation for v${VERSION}" || echo "No changes to commit"
-          git push origin gh-pages --force
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Download documentation artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: documentation-site
-          path: ./site
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -193,6 +95,13 @@ jobs:
         with:
           path: ./site
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
