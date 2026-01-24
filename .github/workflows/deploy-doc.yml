@@ -51,7 +51,8 @@ jobs:
 
           xcodebuild docbuild \
             -scheme "$SCHEME" \
-            -destination 'generic/platform=iOS' \
+            -project DesignSystemExamples/DesignSystemExamples.xcodeproj \
+            -destination 'platform=iOS Simulator,name=iPhone 16,arch=arm64,OS=18.5' \
             -derivedDataPath derivedData \
             2>&1 | xcpretty --color
 
