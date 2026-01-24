@@ -45,7 +45,7 @@ jobs:
 
           xcodebuild docbuild \
             -scheme "$SCHEME" \
-            -project "DesignSystemExamples/DesignSystemExamples.xcodeproj"
+            -project DesignSystemExamples/DesignSystemExamples.xcodeproj \
             -destination "generic/platform=iOS Simulator" \
             -derivedDataPath derivedData \
             CODE_SIGNING_ALLOWED=NO \
