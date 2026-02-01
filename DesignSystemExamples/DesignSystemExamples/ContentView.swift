@@ -1,9 +1,3 @@
-//
-//  ContentView.swift
-//  MobileDesignSystemExampleApp
-//
-//  Created on iOS.
-//
 
 import SwiftUI
 import MobileDesignSystem
@@ -30,6 +24,12 @@ struct ContentView: View {
                     Label("Combined", systemImage: "square.grid.2x2")
                 }
                 .tag(2)
+            
+            CoachmarkExamplesView()
+                .tabItem {
+                    Label("Coachmark", systemImage: "questionmark.circle")
+                }
+                .tag(3)
         }
     }
 }

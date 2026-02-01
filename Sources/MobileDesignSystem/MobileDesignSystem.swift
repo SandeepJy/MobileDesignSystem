@@ -49,7 +49,7 @@ public struct MobileDesignSystem {
     /// The current version of the Mobile Design System.
     ///
     /// This version string follows semantic versioning (major.minor.patch).
-    public static let version = "1.0.0"
+    public static let version = "1.1.0"
     
     private init() {}
 }
