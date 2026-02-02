@@ -1,11 +1,30 @@
-//
-//  MDSCoachmark.swift
-//  MobileDesignSystem
-//
-//  Created on iOS.
-//
+
 
 import SwiftUI
+
+/// A shared object that coordinates scroll requests between any active coachmark overlay
+/// and the scroll container. This avoids environment-overwrite issues when multiple
+/// `.coachmarkOverlay()` modifiers are chained.
+public class MDSCoachmarkScrollRequestManager: ObservableObject {
+    @Published public var currentRequest: MDSCoachmarkScrollRequest? = nil
+    
+    public static let shared = MDSCoachmarkScrollRequestManager()
+    
+    public init() {}
+}
+
+// MARK: - Environment Key (updated to use manager)
+
+struct MDSCoachmarkScrollManagerKey: EnvironmentKey {
+    static let defaultValue: MDSCoachmarkScrollRequestManager = .shared
+}
+
+extension EnvironmentValues {
+    var coachmarkScrollManager: MDSCoachmarkScrollRequestManager {
+        get { self[MDSCoachmarkScrollManagerKey.self] }
+        set { self[MDSCoachmarkScrollManagerKey.self] = newValue }
+    }
+}
 
 // MARK: - Coachmark Item Definition
 
@@ -211,13 +230,7 @@ public struct MDSCoachmarkAnchorPreferenceKey: PreferenceKey {
     }
 }
 
-// MARK: - Scroll Request Key
 
-/// Environment key for the coachmark system to request scrolling to a specific anchor ID.
-/// The consumer's `ScrollViewReader` watches this and calls `scrollTo(_:anchor:)`.
-struct MDSCoachmarkScrollRequestKey: EnvironmentKey {
-    static let defaultValue: Binding<MDSCoachmarkScrollRequest?> = .constant(nil)
-}
 
 /// Describes a scroll request from the coachmark system to the hosting scroll view.
 public struct MDSCoachmarkScrollRequest: Equatable {
@@ -230,13 +243,6 @@ public struct MDSCoachmarkScrollRequest: Equatable {
     
     public static func == (lhs: MDSCoachmarkScrollRequest, rhs: MDSCoachmarkScrollRequest) -> Bool {
         lhs.targetID == rhs.targetID && lhs.token == rhs.token
-    }
-}
-
-extension EnvironmentValues {
-    var coachmarkScrollRequest: Binding<MDSCoachmarkScrollRequest?> {
-        get { self[MDSCoachmarkScrollRequestKey.self] }
-        set { self[MDSCoachmarkScrollRequestKey.self] = newValue }
     }
 }
 
@@ -270,14 +276,8 @@ public struct MDSCoachmarkScrollContainer<Content: View>: View {
     let showsIndicators: Bool
     let content: Content
     
-    @Environment(\.coachmarkScrollRequest) private var scrollRequest
+    @Environment(\.coachmarkScrollManager) private var scrollManager
     
-    /// Creates a coachmark-aware scroll container.
-    ///
-    /// - Parameters:
-    ///   - axes: The scrollable axes. Defaults to `.vertical`.
-    ///   - showsIndicators: Whether to show scroll indicators. Defaults to `true`.
-    ///   - content: The scrollable content.
     public init(
         _ axes: Axis.Set = .vertical,
         showsIndicators: Bool = true,
@@ -293,10 +293,9 @@ public struct MDSCoachmarkScrollContainer<Content: View>: View {
             ScrollView(axes, showsIndicators: showsIndicators) {
                 content
             }
-            .onChange(of: scrollRequest.wrappedValue) { request in
+            .onReceive(scrollManager.$currentRequest) { request in
                 guard let request = request else { return }
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    print ("Sandeep: scrolling to \(request.targetID)")
                     proxy.scrollTo(request.targetID, anchor: request.anchor)
                 }
             }
@@ -360,13 +359,13 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
     let onSkipped: ((Int) -> Void)?
     
     @State private var currentIndex: Int = 0
-    @State private var scrollRequest: MDSCoachmarkScrollRequest? = nil
     @State private var isScrolling: Bool = false
     @State private var tipVisible: Bool = false
     
+    @Environment(\.coachmarkScrollManager) private var scrollManager
+    
     func body(content: Content) -> some View {
         content
-            .environment(\.coachmarkScrollRequest, $scrollRequest)
             .overlayPreferenceValue(MDSCoachmarkAnchorPreferenceKey.self) { anchors in
                 if isPresented, !items.isEmpty {
                     coachmarkOverlay(anchors: anchors)
@@ -392,13 +391,13 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
         isScrolling = true
         tipVisible = false
         
-        scrollRequest = MDSCoachmarkScrollRequest(
+        // Send request through the shared manager
+        scrollManager.currentRequest = MDSCoachmarkScrollRequest(
             targetID: targetID,
             anchor: configuration.scrollAnchor,
             token: UUID()
         )
         
-        // Allow scroll animation to complete, then show the tip
         DispatchQueue.main.asyncAfter(deadline: .now() + configuration.scrollSettleDelay) {
             isScrolling = false
             withAnimation(configuration.animateTransitions ? .easeInOut(duration: 0.25) : nil) {
@@ -499,127 +498,150 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
         let totalSteps = items.count
         let isFirst = stepIndex == 0
         let isLast = stepIndex == totalSteps - 1
-        
-        VStack(spacing: 0) {
-            if !showBelow {
-                Spacer(minLength: 0)
-            }
-            
-            if showBelow {
-                arrowView(pointingUp: true)
-                    .frame(
-                        maxWidth: .infinity,
-                        alignment: arrowAlignment(anchorRect: anchorRect, geometry: geometry)
-                    )
-                    .padding(.horizontal, 24)
-            }
-            
-            // Tip card
-            VStack(alignment: .leading, spacing: 8) {
-                item.contentView
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                
-                Divider()
-                
-                // Navigation bar
-                HStack {
-                    Text("\(stepIndex + 1) of \(totalSteps)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    if configuration.showExitButton && !isLast {
-                        Button {
-                            dismiss()
-                            onSkipped?(stepIndex)
-                        } label: {
-                            Text(configuration.exitButtonLabel)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.trailing, 8)
-                    }
-                    
-                    if configuration.showBackButton && !isFirst {
-                        Button {
-                            goToPrevious()
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chevron.left")
-                                    .font(.caption.bold())
-                                Text(configuration.backButtonLabel)
-                                    .font(.subheadline.bold())
-                            }
-                            .foregroundColor(configuration.accentColor)
-                        }
-                        .padding(.trailing, 4)
-                    }
-                    
-                    Button {
-                        if isLast {
-                            dismiss()
-                            onFinished?()
-                        } else {
-                            goToNext()
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text(isLast ? configuration.finishButtonLabel : configuration.nextButtonLabel)
-                                .font(.subheadline.bold())
-                            if !isLast {
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.bold())
-                            }
-                        }
-                        .foregroundColor(isLast ? .white : configuration.accentColor)
-                        .padding(.horizontal, isLast ? 16 : 0)
-                        .padding(.vertical, isLast ? 6 : 0)
-                        .background(
-                            Group {
-                                if isLast {
-                                    Capsule()
-                                        .fill(configuration.accentColor)
-                                }
-                            }
+
+        let tipContent = tipCardContent(
+            for: item,
+            stepIndex: stepIndex,
+            totalSteps: totalSteps,
+            isFirst: isFirst,
+            isLast: isLast
+        )
+
+        TipPositioningContainer(
+            anchorRect: anchorRect,
+            showBelow: showBelow,
+            arrowSize: configuration.arrowSize,
+            spotlightPadding: configuration.spotlightPadding,
+            screenHeight: geometry.size.height
+        ) {
+            VStack(spacing: 0) {
+                if showBelow {
+                    arrowView(pointingUp: true)
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: arrowAlignment(
+                                anchorRect: anchorRect,
+                                geometry: geometry
+                            )
                         )
-                    }
+                        .padding(.horizontal, 24)
+                }
+
+                tipContent
+                    .padding(.horizontal, configuration.tipHorizontalPadding)
+                    .padding(.vertical, configuration.tipVerticalPadding)
+                    .background(configuration.tipBackgroundColor)
+                    .cornerRadius(configuration.tipCornerRadius)
+                    .shadow(
+                        color: Color.black.opacity(0.15),
+                        radius: configuration.tipShadowRadius,
+                        x: 0, y: 2
+                    )
+                    .padding(.horizontal, 16)
+
+                if !showBelow {
+                    arrowView(pointingUp: false)
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: arrowAlignment(
+                                anchorRect: anchorRect,
+                                geometry: geometry
+                            )
+                        )
+                        .padding(.horizontal, 24)
                 }
             }
-            .padding(.horizontal, configuration.tipHorizontalPadding)
-            .padding(.vertical, configuration.tipVerticalPadding)
-            .background(configuration.tipBackgroundColor)
-            .cornerRadius(configuration.tipCornerRadius)
-            .shadow(
-                color: Color.black.opacity(0.15),
-                radius: configuration.tipShadowRadius,
-                x: 0, y: 2
-            )
-            .padding(.horizontal, 16)
-            
-            if !showBelow {
-                arrowView(pointingUp: false)
-                    .frame(
-                        maxWidth: .infinity,
-                        alignment: arrowAlignment(anchorRect: anchorRect, geometry: geometry)
+        }
+        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+        .id(stepIndex)
+    }
+
+    // MARK: - Tip Card Content
+
+    @ViewBuilder
+    private func tipCardContent(
+        for item: AnyMDSCoachmarkItem,
+        stepIndex: Int,
+        totalSteps: Int,
+        isFirst: Bool,
+        isLast: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            item.contentView
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Divider()
+
+            HStack {
+                Text("\(stepIndex + 1) of \(totalSteps)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                if configuration.showExitButton && !isLast {
+                    Button {
+                        dismiss()
+                        onSkipped?(stepIndex)
+                    } label: {
+                        Text(configuration.exitButtonLabel)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.trailing, 8)
+                }
+
+                if configuration.showBackButton && !isFirst {
+                    Button {
+                        goToPrevious()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.caption.bold())
+                            Text(configuration.backButtonLabel)
+                                .font(.subheadline.bold())
+                        }
+                        .foregroundColor(configuration.accentColor)
+                    }
+                    .padding(.trailing, 4)
+                }
+
+                Button {
+                    if isLast {
+                        dismiss()
+                        onFinished?()
+                    } else {
+                        goToNext()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(
+                            isLast
+                                ? configuration.finishButtonLabel
+                                : configuration.nextButtonLabel
+                        )
+                        .font(.subheadline.bold())
+                        if !isLast {
+                            Image(systemName: "chevron.right")
+                                .font(.caption.bold())
+                        }
+                    }
+                    .foregroundColor(
+                        isLast ? .white : configuration.accentColor
                     )
-                    .padding(.horizontal, 24)
-            }
-            
-            if showBelow {
-                Spacer(minLength: 0)
+                    .padding(.horizontal, isLast ? 16 : 0)
+                    .padding(.vertical, isLast ? 6 : 0)
+                    .background(
+                        Group {
+                            if isLast {
+                                Capsule()
+                                    .fill(configuration.accentColor)
+                            }
+                        }
+                    )
+                }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(
-            .top,
-            showBelow ? anchorRect.maxY + configuration.spotlightPadding + 4 : 0
-        )
-        .padding(
-            .bottom,
-            !showBelow ? (geometry.size.height - anchorRect.minY + configuration.spotlightPadding + 4) : 0
-        )
-        .id(stepIndex)
     }
     
     // MARK: - Arrow View
@@ -643,7 +665,25 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
         case .bottom:
             return true
         case .automatic:
-            return anchorRect.midY < geometry.size.height / 2
+            // Calculate available space above and below the spotlight
+            let spotlightTop = anchorRect.minY - configuration.spotlightPadding
+            let spotlightBottom = anchorRect.maxY + configuration.spotlightPadding
+
+            let spaceAbove = spotlightTop
+            let spaceBelow = geometry.size.height - spotlightBottom
+
+            // Prefer below, but switch to above if there's significantly more room
+            // Use a minimum threshold to avoid placing tips in very tight spaces
+            let minimumSpace: CGFloat = 120
+
+            if spaceBelow >= minimumSpace {
+                return true
+            } else if spaceAbove >= minimumSpace {
+                return false
+            } else {
+                // Both spaces are tight — pick the larger one
+                return spaceBelow >= spaceAbove
+            }
         }
     }
     
@@ -865,3 +905,70 @@ struct MDSCoachmark_Previews: PreviewProvider {
     }
 }
 #endif
+
+/// A container that measures its content and positions it precisely above or below
+/// the spotlight anchor, ensuring it never overlaps the highlighted element.
+private struct TipPositioningContainer<Content: View>: View {
+    let anchorRect: CGRect
+    let showBelow: Bool
+    let arrowSize: CGFloat
+    let spotlightPadding: CGFloat
+    let screenHeight: CGFloat
+    let content: Content
+
+    @State private var tipSize: CGSize = .zero
+
+    init(
+        anchorRect: CGRect,
+        showBelow: Bool,
+        arrowSize: CGFloat,
+        spotlightPadding: CGFloat,
+        screenHeight: CGFloat,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.anchorRect = anchorRect
+        self.showBelow = showBelow
+        self.arrowSize = arrowSize
+        self.spotlightPadding = spotlightPadding
+        self.screenHeight = screenHeight
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .background(
+                GeometryReader { tipGeometry in
+                    Color.clear
+                        .onAppear {
+                            tipSize = tipGeometry.size
+                        }
+                        .onChange(of: tipGeometry.size.height) { _ in
+                            tipSize = tipGeometry.size
+                        }
+                }
+            )
+            .frame(maxWidth: .infinity)
+            .position(x: UIScreen.main.bounds.width / 2, y: computedY)
+    }
+
+    /// The gap between the spotlight edge and the tip content.
+    private var gap: CGFloat { 4 }
+
+    private var computedY: CGFloat {
+        if showBelow {
+            // Place tip below the spotlight
+            let topEdge = anchorRect.maxY + spotlightPadding + gap
+            let y = topEdge + tipSize.height / 2
+            // Clamp so tip doesn't go off the bottom of the screen
+            let maxY = screenHeight - tipSize.height / 2 - 8
+            return min(y, maxY)
+        } else {
+            // Place tip above the spotlight
+            let bottomEdge = anchorRect.minY - spotlightPadding - gap
+            let y = bottomEdge - tipSize.height / 2
+            // Clamp so tip doesn't go off the top of the screen
+            let minY = tipSize.height / 2 + 8
+            return max(y, minY)
+        }
+    }
+}
