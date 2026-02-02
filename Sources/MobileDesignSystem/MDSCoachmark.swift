@@ -351,6 +351,8 @@ private func isRectVisible(_ rect: CGRect, in containerSize: CGSize, threshold: 
 // MARK: - Coachmark Overlay Modifier
 
 /// A view modifier that presents the coachmark overlay sequence.
+// MARK: - Coachmark Overlay Modifier
+
 struct MDSCoachmarkOverlayModifier: ViewModifier {
     @Binding var isPresented: Bool
     let items: [AnyMDSCoachmarkItem]
@@ -368,7 +370,50 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
         content
             .overlayPreferenceValue(MDSCoachmarkAnchorPreferenceKey.self) { anchors in
                 if isPresented, !items.isEmpty {
-                    coachmarkOverlay(anchors: anchors)
+                    GeometryReader { geometry in
+                        let safeAreaInsets = geometry.safeAreaInsets
+                        let safeCurrentIndex = min(currentIndex, items.count - 1)
+                        let currentItem = items[safeCurrentIndex]
+                        let anchorRect: CGRect? = anchors[currentItem.id].map { anchor in
+                            // Get the rect and DON'T offset - the geometry reader
+                            // already accounts for its own coordinate space
+                            geometry[anchor]
+                        }
+                        
+                        let rectIsVisible = anchorRect.map {
+                            isRectVisible($0, in: geometry.size)
+                        } ?? false
+                        
+                        ZStack {
+                            // Dimmed overlay with spotlight cutout
+                            overlayBackground(
+                                anchorRect: (tipVisible && rectIsVisible) ? anchorRect : nil,
+                                safeAreaInsets: safeAreaInsets,
+                                in: geometry
+                            )
+                            .onTapGesture { }
+                            
+                            // Tip popover
+                            if tipVisible, let rect = anchorRect, rectIsVisible {
+                                tipPopover(
+                                    for: currentItem,
+                                    anchorRect: rect,
+                                    safeAreaInsets: safeAreaInsets,
+                                    geometry: geometry,
+                                    stepIndex: safeCurrentIndex
+                                )
+                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                            }
+                            
+                            // Loading indicator while scrolling
+                            if isScrolling {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .scaleEffect(1.2)
+                            }
+                        }
+                        .ignoresSafeArea()
+                    }
                 }
             }
             .onChange(of: isPresented) { newValue in
@@ -391,7 +436,6 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
         isScrolling = true
         tipVisible = false
         
-        // Send request through the shared manager
         scrollManager.currentRequest = MDSCoachmarkScrollRequest(
             targetID: targetID,
             anchor: configuration.scrollAnchor,
@@ -406,64 +450,40 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
         }
     }
     
-    // MARK: - Overlay
-    
-    @ViewBuilder
-    private func coachmarkOverlay(anchors: [String: Anchor<CGRect>]) -> some View {
-        GeometryReader { geometry in
-            let safeCurrentIndex = min(currentIndex, items.count - 1)
-            let currentItem = items[safeCurrentIndex]
-            let anchorRect: CGRect? = anchors[currentItem.id].map { geometry[$0] }
-            
-            let rectIsVisible = anchorRect.map {
-                isRectVisible($0, in: geometry.size)
-            } ?? false
-            
-            ZStack {
-                // Dimmed overlay with spotlight cutout
-                overlayBackground(
-                    anchorRect: (tipVisible && rectIsVisible) ? anchorRect : nil,
-                    in: geometry
-                )
-                .onTapGesture { }
-                
-                // Tip popover
-                if tipVisible, let rect = anchorRect, rectIsVisible {
-                    tipPopover(
-                        for: currentItem,
-                        anchorRect: rect,
-                        geometry: geometry,
-                        stepIndex: safeCurrentIndex
-                    )
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                }
-                
-                // Loading indicator while scrolling
-                if isScrolling {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(1.2)
-                }
-            }
-            .ignoresSafeArea()
-        }
-    }
-    
     // MARK: - Overlay Background
     
     @ViewBuilder
-    private func overlayBackground(anchorRect: CGRect?, in geometry: GeometryProxy) -> some View {
+    private func overlayBackground(
+        anchorRect: CGRect?,
+        safeAreaInsets: EdgeInsets,
+        in geometry: GeometryProxy
+    ) -> some View {
         let spotlightPadding = configuration.spotlightPadding
         let cornerRadius = configuration.spotlightCornerRadius
         
+        // Full screen size including safe areas
+        let fullSize = CGSize(
+            width: geometry.size.width + geometry.safeAreaInsets.leading + geometry.safeAreaInsets.trailing,
+            height: geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom
+        )
+        
         Canvas { context, size in
+            // Fill the entire canvas (which is full screen due to ignoresSafeArea)
             context.fill(
                 Path(CGRect(origin: .zero, size: size)),
                 with: .color(configuration.overlayColor)
             )
             
             if let rect = anchorRect {
-                let spotlightRect = rect.insetBy(dx: -spotlightPadding, dy: -spotlightPadding)
+                // Offset the rect to account for safe area since canvas ignores safe area
+                let adjustedRect = CGRect(
+                    x: rect.origin.x + safeAreaInsets.leading,
+                    y: rect.origin.y + safeAreaInsets.top,
+                    width: rect.width,
+                    height: rect.height
+                )
+                
+                let spotlightRect = adjustedRect.insetBy(dx: -spotlightPadding, dy: -spotlightPadding)
                 let spotlightPath = Path(roundedRect: spotlightRect, cornerRadius: cornerRadius)
                 context.blendMode = .destinationOut
                 context.fill(spotlightPath, with: .color(.white))
@@ -473,7 +493,13 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
         .allowsHitTesting(true)
         .overlay {
             if let rect = anchorRect, configuration.spotlightBorderWidth > 0 {
-                let spotlightRect = rect.insetBy(
+                let adjustedRect = CGRect(
+                    x: rect.origin.x + safeAreaInsets.leading,
+                    y: rect.origin.y + safeAreaInsets.top,
+                    width: rect.width,
+                    height: rect.height
+                )
+                let spotlightRect = adjustedRect.insetBy(
                     dx: -spotlightPadding,
                     dy: -spotlightPadding
                 )
@@ -491,14 +517,26 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
     private func tipPopover(
         for item: AnyMDSCoachmarkItem,
         anchorRect: CGRect,
+        safeAreaInsets: EdgeInsets,
         geometry: GeometryProxy,
         stepIndex: Int
     ) -> some View {
-        let showBelow = shouldShowBelow(anchorRect: anchorRect, in: geometry)
+        // Adjust anchor rect for safe area (since we're in ignoresSafeArea context)
+        let adjustedAnchorRect = CGRect(
+            x: anchorRect.origin.x + safeAreaInsets.leading,
+            y: anchorRect.origin.y + safeAreaInsets.top,
+            width: anchorRect.width,
+            height: anchorRect.height
+        )
+        
+        let fullScreenHeight = geometry.size.height + safeAreaInsets.top + safeAreaInsets.bottom
+        let fullScreenWidth = geometry.size.width + safeAreaInsets.leading + safeAreaInsets.trailing
+        
+        let showBelow = shouldShowBelow(anchorRect: adjustedAnchorRect, screenHeight: fullScreenHeight)
         let totalSteps = items.count
         let isFirst = stepIndex == 0
         let isLast = stepIndex == totalSteps - 1
-
+        
         let tipContent = tipCardContent(
             for: item,
             stepIndex: stepIndex,
@@ -506,13 +544,14 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
             isFirst: isFirst,
             isLast: isLast
         )
-
+        
         TipPositioningContainer(
-            anchorRect: anchorRect,
+            anchorRect: adjustedAnchorRect,
             showBelow: showBelow,
             arrowSize: configuration.arrowSize,
             spotlightPadding: configuration.spotlightPadding,
-            screenHeight: geometry.size.height
+            screenSize: CGSize(width: fullScreenWidth, height: fullScreenHeight),
+            safeAreaInsets: safeAreaInsets
         ) {
             VStack(spacing: 0) {
                 if showBelow {
@@ -520,13 +559,13 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
                         .frame(
                             maxWidth: .infinity,
                             alignment: arrowAlignment(
-                                anchorRect: anchorRect,
-                                geometry: geometry
+                                anchorRect: adjustedAnchorRect,
+                                screenWidth: fullScreenWidth
                             )
                         )
                         .padding(.horizontal, 24)
                 }
-
+                
                 tipContent
                     .padding(.horizontal, configuration.tipHorizontalPadding)
                     .padding(.vertical, configuration.tipVerticalPadding)
@@ -538,14 +577,14 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
                         x: 0, y: 2
                     )
                     .padding(.horizontal, 16)
-
+                
                 if !showBelow {
                     arrowView(pointingUp: false)
                         .frame(
                             maxWidth: .infinity,
                             alignment: arrowAlignment(
-                                anchorRect: anchorRect,
-                                geometry: geometry
+                                anchorRect: adjustedAnchorRect,
+                                screenWidth: fullScreenWidth
                             )
                         )
                         .padding(.horizontal, 24)
@@ -555,9 +594,9 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
         .transition(.opacity.combined(with: .scale(scale: 0.95)))
         .id(stepIndex)
     }
-
+    
     // MARK: - Tip Card Content
-
+    
     @ViewBuilder
     private func tipCardContent(
         for item: AnyMDSCoachmarkItem,
@@ -569,16 +608,16 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
         VStack(alignment: .leading, spacing: 8) {
             item.contentView
                 .frame(maxWidth: .infinity, alignment: .leading)
-
+            
             Divider()
-
+            
             HStack {
                 Text("\(stepIndex + 1) of \(totalSteps)")
                     .font(.caption)
                     .foregroundColor(.secondary)
-
+                
                 Spacer()
-
+                
                 if configuration.showExitButton && !isLast {
                     Button {
                         dismiss()
@@ -590,7 +629,7 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
                     }
                     .padding(.trailing, 8)
                 }
-
+                
                 if configuration.showBackButton && !isFirst {
                     Button {
                         goToPrevious()
@@ -605,7 +644,7 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
                     }
                     .padding(.trailing, 4)
                 }
-
+                
                 Button {
                     if isLast {
                         dismiss()
@@ -615,20 +654,14 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Text(
-                            isLast
-                                ? configuration.finishButtonLabel
-                                : configuration.nextButtonLabel
-                        )
-                        .font(.subheadline.bold())
+                        Text(isLast ? configuration.finishButtonLabel : configuration.nextButtonLabel)
+                            .font(.subheadline.bold())
                         if !isLast {
                             Image(systemName: "chevron.right")
                                 .font(.caption.bold())
                         }
                     }
-                    .foregroundColor(
-                        isLast ? .white : configuration.accentColor
-                    )
+                    .foregroundColor(isLast ? .white : configuration.accentColor)
                     .padding(.horizontal, isLast ? 16 : 0)
                     .padding(.vertical, isLast ? 6 : 0)
                     .background(
@@ -658,38 +691,33 @@ struct MDSCoachmarkOverlayModifier: ViewModifier {
     
     // MARK: - Helpers
     
-    private func shouldShowBelow(anchorRect: CGRect, in geometry: GeometryProxy) -> Bool {
+    private func shouldShowBelow(anchorRect: CGRect, screenHeight: CGFloat) -> Bool {
         switch configuration.arrowDirection {
         case .top:
             return false
         case .bottom:
             return true
         case .automatic:
-            // Calculate available space above and below the spotlight
             let spotlightTop = anchorRect.minY - configuration.spotlightPadding
             let spotlightBottom = anchorRect.maxY + configuration.spotlightPadding
-
+            
             let spaceAbove = spotlightTop
-            let spaceBelow = geometry.size.height - spotlightBottom
-
-            // Prefer below, but switch to above if there's significantly more room
-            // Use a minimum threshold to avoid placing tips in very tight spaces
+            let spaceBelow = screenHeight - spotlightBottom
+            
             let minimumSpace: CGFloat = 120
-
+            
             if spaceBelow >= minimumSpace {
                 return true
             } else if spaceAbove >= minimumSpace {
                 return false
             } else {
-                // Both spaces are tight — pick the larger one
                 return spaceBelow >= spaceAbove
             }
         }
     }
     
-    private func arrowAlignment(anchorRect: CGRect, geometry: GeometryProxy) -> Alignment {
+    private func arrowAlignment(anchorRect: CGRect, screenWidth: CGFloat) -> Alignment {
         let midX = anchorRect.midX
-        let screenWidth = geometry.size.width
         if midX < screenWidth * 0.3 {
             return .leading
         } else if midX > screenWidth * 0.7 {
@@ -913,27 +941,30 @@ private struct TipPositioningContainer<Content: View>: View {
     let showBelow: Bool
     let arrowSize: CGFloat
     let spotlightPadding: CGFloat
-    let screenHeight: CGFloat
+    let screenSize: CGSize
+    let safeAreaInsets: EdgeInsets
     let content: Content
-
+    
     @State private var tipSize: CGSize = .zero
-
+    
     init(
         anchorRect: CGRect,
         showBelow: Bool,
         arrowSize: CGFloat,
         spotlightPadding: CGFloat,
-        screenHeight: CGFloat,
+        screenSize: CGSize,
+        safeAreaInsets: EdgeInsets,
         @ViewBuilder content: () -> Content
     ) {
         self.anchorRect = anchorRect
         self.showBelow = showBelow
         self.arrowSize = arrowSize
         self.spotlightPadding = spotlightPadding
-        self.screenHeight = screenHeight
+        self.screenSize = screenSize
+        self.safeAreaInsets = safeAreaInsets
         self.content = content()
     }
-
+    
     var body: some View {
         content
             .background(
@@ -948,25 +979,20 @@ private struct TipPositioningContainer<Content: View>: View {
                 }
             )
             .frame(maxWidth: .infinity)
-            .position(x: UIScreen.main.bounds.width / 2, y: computedY)
+            .position(x: screenSize.width / 2, y: computedY)
     }
-
-    /// The gap between the spotlight edge and the tip content.
+    
     private var gap: CGFloat { 4 }
-
+    
     private var computedY: CGFloat {
         if showBelow {
-            // Place tip below the spotlight
-            let topEdge = anchorRect.maxY + spotlightPadding + gap
+            let topEdge = anchorRect.maxY + spotlightPadding + gap + arrowSize
             let y = topEdge + tipSize.height / 2
-            // Clamp so tip doesn't go off the bottom of the screen
-            let maxY = screenHeight - tipSize.height / 2 - 8
+            let maxY = screenSize.height - tipSize.height / 2 - 8
             return min(y, maxY)
         } else {
-            // Place tip above the spotlight
-            let bottomEdge = anchorRect.minY - spotlightPadding - gap
+            let bottomEdge = anchorRect.minY - spotlightPadding - gap - arrowSize
             let y = bottomEdge - tipSize.height / 2
-            // Clamp so tip doesn't go off the top of the screen
             let minY = tipSize.height / 2 + 8
             return max(y, minY)
         }
