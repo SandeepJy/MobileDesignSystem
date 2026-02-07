@@ -1,26 +1,18 @@
 import SwiftUI
 
-// MARK: - Coachmark Item (Simplified - No Type Erasure)
+// MARK: - Coachmark Item
 
-/// Defines a single coachmark step with standardized content.
 public struct MDSCoachmarkItem: Identifiable, Equatable {
     public let id: String
-    
-    /// Title displayed prominently in the tip
     public let title: String
-    
-    /// Optional description text below the title
     public let description: String?
-    
-    /// Optional SF Symbol name for the icon
     public let iconName: String?
-    
-    /// Optional custom icon color (defaults to accent color)
     public let iconColor: Color?
     
-    /// Names of scroll proxies to use when scrolling to this anchor.
-    /// If nil, all registered proxies will be used in registration order.
-    /// If empty array, no scrolling will be performed.
+    /// Ordered scroll proxy names from outermost to innermost.
+    /// - `nil` → no scrolling (item is already visible)
+    /// - `["main"]` → scroll main to target
+    /// - `["main", "carousel"]` → scroll main to carousel container, then carousel to target
     public let scrollProxies: [String]?
     
     public init(
@@ -50,55 +42,108 @@ public struct MDSCoachmarkItem: Identifiable, Equatable {
 
 // MARK: - Scroll Coordinator
 
-/// Coordinates scrolling across multiple ScrollViews in the consumer's view hierarchy.
 public class MDSCoachmarkScrollCoordinator: ObservableObject {
     
-    private var scrollActions: [String: (String, UnitPoint) -> Void] = [:]
+    /// Stores both the scroll action and the auto-generated container ID for each proxy
+    private struct ProxyEntry {
+        let containerID: String
+        let scrollAction: (String, UnitPoint) -> Void
+    }
+    
+    private var entries: [String: ProxyEntry] = [:]
     private var orderedNames: [String] = []
     
     public init() {}
     
-    /// Register a named scroll proxy action
-    public func register(_ name: String, action: @escaping (String, UnitPoint) -> Void) {
-        if scrollActions[name] == nil {
+    /// Register a named scroll proxy with its auto-generated container ID
+    internal func register(
+        _ name: String,
+        containerID: String,
+        action: @escaping (String, UnitPoint) -> Void
+    ) {
+        if entries[name] == nil {
             orderedNames.append(name)
         }
-        scrollActions[name] = action
+        entries[name] = ProxyEntry(containerID: containerID, scrollAction: action)
     }
     
     /// Unregister a scroll proxy
     public func unregister(_ name: String) {
-        scrollActions.removeValue(forKey: name)
+        entries.removeValue(forKey: name)
         orderedNames.removeAll { $0 == name }
     }
     
-    /// Scroll to target using specified proxies (in order), or all registered proxies if none specified
-    public func scrollTo(
-        _ targetID: String,
-        anchor: UnitPoint,
-        using proxyNames: [String]?,
-        animated: Bool = true
-    ) {
-        let namesToUse = proxyNames ?? orderedNames
-        
-        let performScroll = {
-            for name in namesToUse {
-                self.scrollActions[name]?(targetID, anchor)
-            }
-        }
-        
-        if animated {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                performScroll()
-            }
-        } else {
-            performScroll()
-        }
+    public var hasRegisteredProxies: Bool {
+        !entries.isEmpty
     }
     
-    /// Check if any scroll proxies are registered
-    public var hasRegisteredProxies: Bool {
-        !scrollActions.isEmpty
+    /// Look up the auto-generated container ID for a named proxy
+    internal func containerID(for name: String) -> String? {
+        entries[name]?.containerID
+    }
+    
+    /// Execute scroll steps sequentially: each proxy (except the last) scrolls to the
+    /// NEXT proxy's container. The last proxy scrolls to the actual target.
+    ///
+    /// Example: proxyNames = ["main", "carousel"], targetID = "card-5"
+    ///   1. "main" scrolls to carousel's container ID  (brings carousel into viewport)
+    ///   2. "carousel" scrolls to "card-5"             (scrolls to the card)
+    public func scrollSequentially(
+        targetID: String,
+        proxyNames: [String],
+        anchor: UnitPoint,
+        animated: Bool,
+        interStepDelay: TimeInterval = 0.35,
+        completion: @escaping () -> Void
+    ) {
+        guard !proxyNames.isEmpty else {
+            completion()
+            return
+        }
+        
+        func executeStep(_ index: Int) {
+            guard index < proxyNames.count else {
+                completion()
+                return
+            }
+            
+            let name = proxyNames[index]
+            guard let entry = entries[name] else {
+                // Skip unknown proxy, continue to next
+                executeStep(index + 1)
+                return
+            }
+            
+            // Determine scroll target:
+            // - Last proxy → scroll to the actual target ID
+            // - Earlier proxies → scroll to the NEXT proxy's container ID
+            let scrollTarget: String
+            if index < proxyNames.count - 1 {
+                let nextName = proxyNames[index + 1]
+                scrollTarget = entries[nextName]?.containerID ?? targetID
+            } else {
+                scrollTarget = targetID
+            }
+            
+            let perform = {
+                entry.scrollAction(scrollTarget, anchor)
+            }
+            
+            if animated {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    perform()
+                }
+            } else {
+                perform()
+            }
+            
+            // Wait for this scroll to settle, then fire next step
+            DispatchQueue.main.asyncAfter(deadline: .now() + interStepDelay) {
+                executeStep(index + 1)
+            }
+        }
+        
+        executeStep(0)
     }
 }
 
@@ -106,14 +151,19 @@ public class MDSCoachmarkScrollCoordinator: ObservableObject {
 
 public extension View {
     /// Register a ScrollViewProxy with the coachmark scroll coordinator.
+    /// Automatically assigns a hidden ID so parent proxies can scroll to this container.
     func coachmarkScrollProxy(
         _ name: String,
         proxy: ScrollViewProxy,
         coordinator: MDSCoachmarkScrollCoordinator
     ) -> some View {
-        self
+        // Stable, deterministic ID that won't clash with user IDs
+        let containerID = "__mds_coachmark_container_\(name)"
+        
+        return self
+            .id(containerID)
             .onAppear {
-                coordinator.register(name) { id, anchor in
+                coordinator.register(name, containerID: containerID) { id, anchor in
                     proxy.scrollTo(id, anchor: anchor)
                 }
             }
@@ -126,37 +176,25 @@ public extension View {
 // MARK: - Arrow Direction
 
 public enum MDSCoachmarkArrowDirection {
-    case top
-    case bottom
-    case automatic
+    case top, bottom, automatic
 }
 
 // MARK: - Tip Layout Style
 
 public enum MDSCoachmarkTipLayoutStyle {
-    /// Icon on the leading side, title and description stacked vertically
-    case horizontal
-    /// Icon above title and description
-    case vertical
-    /// No icon area reserved, just title and description
-    case textOnly
+    case horizontal, vertical, textOnly
 }
 
 // MARK: - Coachmark Configuration
 
 public struct MDSCoachmarkConfiguration {
-    // MARK: Button Labels
     public var showExitButton: Bool
     public var exitButtonLabel: String
     public var nextButtonLabel: String
     public var finishButtonLabel: String
     public var backButtonLabel: String
     public var showBackButton: Bool
-    
-    // MARK: Overlay Appearance
     public var overlayColor: Color
-    
-    // MARK: Tip Appearance
     public var tipBackgroundColor: Color
     public var tipCornerRadius: CGFloat
     public var tipShadowRadius: CGFloat
@@ -164,34 +202,28 @@ public struct MDSCoachmarkConfiguration {
     public var tipVerticalPadding: CGFloat
     public var tipMaxWidth: CGFloat?
     public var tipLayoutStyle: MDSCoachmarkTipLayoutStyle
-    
-    // MARK: Typography
     public var titleFont: Font
     public var titleColor: Color
     public var descriptionFont: Font
     public var descriptionColor: Color
     public var stepIndicatorFont: Font
     public var stepIndicatorColor: Color
-    
-    // MARK: Icon Defaults
     public var defaultIconSize: CGFloat
     public var defaultIconColor: Color
-    
-    // MARK: Accent & Spotlight
     public var accentColor: Color
     public var spotlightBorderColor: Color
     public var spotlightBorderWidth: CGFloat
     public var spotlightCornerRadius: CGFloat
     public var spotlightPadding: CGFloat
-    
-    // MARK: Arrow
     public var arrowDirection: MDSCoachmarkArrowDirection
     public var arrowSize: CGFloat
-    
-    // MARK: Animation & Scrolling
     public var animateTransitions: Bool
     public var scrollAnchor: UnitPoint
     public var scrollSettleDelay: TimeInterval
+    /// Delay between sequential scroll steps (outer → inner)
+    public var scrollInterStepDelay: TimeInterval
+    /// Minimum margin between tip and safe area edges (nav bar/tab bar)
+    public var tipSafeAreaMargin: CGFloat
     
     public init(
         showExitButton: Bool = true,
@@ -225,7 +257,9 @@ public struct MDSCoachmarkConfiguration {
         arrowSize: CGFloat = 8,
         animateTransitions: Bool = true,
         scrollAnchor: UnitPoint = .center,
-        scrollSettleDelay: TimeInterval = 0.4
+        scrollSettleDelay: TimeInterval = 0.4,
+        scrollInterStepDelay: TimeInterval = 0.35,
+        tipSafeAreaMargin: CGFloat = 8
     ) {
         self.showExitButton = showExitButton
         self.exitButtonLabel = exitButtonLabel
@@ -259,6 +293,8 @@ public struct MDSCoachmarkConfiguration {
         self.animateTransitions = animateTransitions
         self.scrollAnchor = scrollAnchor
         self.scrollSettleDelay = scrollSettleDelay
+        self.scrollInterStepDelay = scrollInterStepDelay
+        self.tipSafeAreaMargin = tipSafeAreaMargin
     }
 }
 
@@ -267,7 +303,10 @@ public struct MDSCoachmarkConfiguration {
 public struct MDSCoachmarkAnchorPreferenceKey: PreferenceKey {
     public static var defaultValue: [String: Anchor<CGRect>] = [:]
     
-    public static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
+    public static func reduce(
+        value: inout [String: Anchor<CGRect>],
+        nextValue: () -> [String: Anchor<CGRect>]
+    ) {
         value.merge(nextValue(), uniquingKeysWith: { $1 })
     }
 }
@@ -303,12 +342,8 @@ private struct MDSCoachmarkTipContentView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Content area based on layout style
             contentLayout
-            
             Divider()
-            
-            // Navigation area
             navigationBar
         }
     }
@@ -316,22 +351,16 @@ private struct MDSCoachmarkTipContentView: View {
     @ViewBuilder
     private var contentLayout: some View {
         switch configuration.tipLayoutStyle {
-        case .horizontal:
-            horizontalLayout
-        case .vertical:
-            verticalLayout
-        case .textOnly:
-            textOnlyLayout
+        case .horizontal: horizontalLayout
+        case .vertical:   verticalLayout
+        case .textOnly:   textOnlyLayout
         }
     }
     
     @ViewBuilder
     private var horizontalLayout: some View {
         HStack(alignment: .top, spacing: 12) {
-            if let iconName = item.iconName {
-                iconView(systemName: iconName)
-            }
-            
+            if let iconName = item.iconName { iconView(systemName: iconName) }
             textContent
         }
     }
@@ -339,18 +368,13 @@ private struct MDSCoachmarkTipContentView: View {
     @ViewBuilder
     private var verticalLayout: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let iconName = item.iconName {
-                iconView(systemName: iconName)
-            }
-            
+            if let iconName = item.iconName { iconView(systemName: iconName) }
             textContent
         }
     }
     
     @ViewBuilder
-    private var textOnlyLayout: some View {
-        textContent
-    }
+    private var textOnlyLayout: some View { textContent }
     
     @ViewBuilder
     private var textContent: some View {
@@ -359,7 +383,6 @@ private struct MDSCoachmarkTipContentView: View {
                 .font(configuration.titleFont)
                 .foregroundColor(configuration.titleColor)
                 .fixedSize(horizontal: false, vertical: true)
-            
             if let description = item.description, !description.isEmpty {
                 Text(description)
                     .font(configuration.descriptionFont)
@@ -373,24 +396,24 @@ private struct MDSCoachmarkTipContentView: View {
     @ViewBuilder
     private func iconView(systemName: String) -> some View {
         let color = item.iconColor ?? configuration.defaultIconColor
-        
         Image(systemName: systemName)
             .font(.system(size: configuration.defaultIconSize))
             .foregroundColor(color)
-            .frame(width: configuration.defaultIconSize + 8, height: configuration.defaultIconSize + 8)
+            .frame(
+                width: configuration.defaultIconSize + 8,
+                height: configuration.defaultIconSize + 8
+            )
     }
     
     @ViewBuilder
     private var navigationBar: some View {
         HStack {
-            // Step indicator
             Text("\(stepIndex + 1) of \(totalSteps)")
                 .font(configuration.stepIndicatorFont)
                 .foregroundColor(configuration.stepIndicatorColor)
             
             Spacer()
             
-            // Skip button
             if configuration.showExitButton && !isLast {
                 Button(action: onSkip) {
                     Text(configuration.exitButtonLabel)
@@ -400,28 +423,23 @@ private struct MDSCoachmarkTipContentView: View {
                 .padding(.trailing, 8)
             }
             
-            // Back button
             if configuration.showBackButton && !isFirst {
                 Button(action: onBack) {
                     HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                            .font(.caption.bold())
-                        Text(configuration.backButtonLabel)
-                            .font(.subheadline.bold())
+                        Image(systemName: "chevron.left").font(.caption.bold())
+                        Text(configuration.backButtonLabel).font(.subheadline.bold())
                     }
                     .foregroundColor(configuration.accentColor)
                 }
                 .padding(.trailing, 4)
             }
             
-            // Next/Finish button
             Button(action: isLast ? onFinish : onNext) {
                 HStack(spacing: 4) {
                     Text(isLast ? configuration.finishButtonLabel : configuration.nextButtonLabel)
                         .font(.subheadline.bold())
                     if !isLast {
-                        Image(systemName: "chevron.right")
-                            .font(.caption.bold())
+                        Image(systemName: "chevron.right").font(.caption.bold())
                     }
                 }
                 .foregroundColor(isLast ? .white : configuration.accentColor)
@@ -429,9 +447,7 @@ private struct MDSCoachmarkTipContentView: View {
                 .padding(.vertical, isLast ? 6 : 0)
                 .background(
                     Group {
-                        if isLast {
-                            Capsule().fill(configuration.accentColor)
-                        }
+                        if isLast { Capsule().fill(configuration.accentColor) }
                     }
                 )
             }
@@ -441,13 +457,14 @@ private struct MDSCoachmarkTipContentView: View {
 
 // MARK: - Visibility Check
 
-private func isRectVisible(_ rect: CGRect, in containerSize: CGSize, threshold: CGFloat = 0.5) -> Bool {
+private func isRectVisible(
+    _ rect: CGRect, in containerSize: CGSize, threshold: CGFloat = 0.5
+) -> Bool {
     let visibleArea = CGRect(origin: .zero, size: containerSize)
     let intersection = rect.intersection(visibleArea)
-    
     guard !intersection.isNull else { return false }
-    
-    let visiblePortion = (intersection.width * intersection.height) / max(rect.width * rect.height, 1)
+    let visiblePortion = (intersection.width * intersection.height)
+        / max(rect.width * rect.height, 1)
     return visiblePortion >= threshold
 }
 
@@ -473,6 +490,7 @@ private struct TipPositioningContainer<Content: View>: View {
     let spotlightPadding: CGFloat
     let screenSize: CGSize
     let safeAreaInsets: EdgeInsets
+    let safeAreaMargin: CGFloat
     let content: Content
     
     @State private var tipSize: CGSize = .zero
@@ -484,6 +502,7 @@ private struct TipPositioningContainer<Content: View>: View {
         spotlightPadding: CGFloat,
         screenSize: CGSize,
         safeAreaInsets: EdgeInsets,
+        safeAreaMargin: CGFloat = 8,
         @ViewBuilder content: () -> Content
     ) {
         self.anchorRect = anchorRect
@@ -492,6 +511,7 @@ private struct TipPositioningContainer<Content: View>: View {
         self.spotlightPadding = spotlightPadding
         self.screenSize = screenSize
         self.safeAreaInsets = safeAreaInsets
+        self.safeAreaMargin = safeAreaMargin
         self.content = content()
     }
     
@@ -516,12 +536,14 @@ private struct TipPositioningContainer<Content: View>: View {
         if showBelow {
             let topEdge = anchorRect.maxY + spotlightPadding + gap + arrowSize
             let y = topEdge + tipSize.height / 2
-            let maxY = screenSize.height - tipSize.height / 2 - 8
+            // Ensure tip doesn't go behind bottom safe area (tab bar)
+            let maxY = screenSize.height - safeAreaInsets.bottom - tipSize.height / 2 - safeAreaMargin
             return min(y, maxY)
         } else {
             let bottomEdge = anchorRect.minY - spotlightPadding - gap - arrowSize
             let y = bottomEdge - tipSize.height / 2
-            let minY = tipSize.height / 2 + 8
+            // Ensure tip doesn't go behind top safe area (nav bar)
+            let minY = safeAreaInsets.top + tipSize.height / 2 + safeAreaMargin
             return max(y, minY)
         }
     }
@@ -601,19 +623,43 @@ private struct MDSCoachmarkOverlayView: View {
         isScrolling = true
         tipVisible = false
         
-        if let coordinator = scrollCoordinator, coordinator.hasRegisteredProxies {
-            coordinator.scrollTo(
-                currentItem.id,
+        // Check if we have scroll work to do
+        if let coordinator = scrollCoordinator,
+           coordinator.hasRegisteredProxies,
+           let proxyNames = currentItem.scrollProxies,
+           !proxyNames.isEmpty
+        {
+            // Sequential scroll: outer → inner, then show tip
+            coordinator.scrollSequentially(
+                targetID: currentItem.id,
+                proxyNames: proxyNames,
                 anchor: configuration.scrollAnchor,
-                using: currentItem.scrollProxies,
-                animated: configuration.animateTransitions
-            )
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + configuration.scrollSettleDelay) {
-            isScrolling = false
-            withAnimation(configuration.animateTransitions ? .easeInOut(duration: 0.25) : nil) {
-                tipVisible = true
+                animated: configuration.animateTransitions,
+                interStepDelay: configuration.scrollInterStepDelay
+            ) {
+                // All scroll steps done → final settle delay
+                DispatchQueue.main.asyncAfter(
+                    deadline: .now() + configuration.scrollSettleDelay
+                ) {
+                    self.isScrolling = false
+                    withAnimation(
+                        configuration.animateTransitions
+                            ? .easeInOut(duration: 0.25) : nil
+                    ) {
+                        self.tipVisible = true
+                    }
+                }
+            }
+        } else {
+            // No scrolling needed — show tip after brief layout pass
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.isScrolling = false
+                withAnimation(
+                    configuration.animateTransitions
+                        ? .easeInOut(duration: 0.25) : nil
+                ) {
+                    self.tipVisible = true
+                }
             }
         }
     }
@@ -640,7 +686,10 @@ private struct MDSCoachmarkOverlayView: View {
                 )
                 let spot = adjusted.insetBy(dx: -pad, dy: -pad)
                 context.blendMode = .destinationOut
-                context.fill(Path(roundedRect: spot, cornerRadius: radius), with: .color(.white))
+                context.fill(
+                    Path(roundedRect: spot, cornerRadius: radius),
+                    with: .color(.white)
+                )
             }
         }
         .compositingGroup()
@@ -654,7 +703,10 @@ private struct MDSCoachmarkOverlayView: View {
                 )
                 let spot = adjusted.insetBy(dx: -pad, dy: -pad)
                 RoundedRectangle(cornerRadius: radius)
-                    .stroke(configuration.spotlightBorderColor, lineWidth: configuration.spotlightBorderWidth)
+                    .stroke(
+                        configuration.spotlightBorderColor,
+                        lineWidth: configuration.spotlightBorderWidth
+                    )
                     .frame(width: spot.width, height: spot.height)
                     .position(x: spot.midX, y: spot.midY)
             }
@@ -676,7 +728,11 @@ private struct MDSCoachmarkOverlayView: View {
         )
         let fullH = geometry.size.height + safeAreaInsets.top + safeAreaInsets.bottom
         let fullW = geometry.size.width + safeAreaInsets.leading + safeAreaInsets.trailing
-        let below = shouldShowBelow(anchorRect: adjusted, screenHeight: fullH)
+        let below = shouldShowBelow(
+            anchorRect: adjusted,
+            screenHeight: fullH,
+            safeAreaInsets: safeAreaInsets
+        )
         let isFirst = stepIndex == 0
         let isLast = stepIndex == items.count - 1
         
@@ -686,12 +742,16 @@ private struct MDSCoachmarkOverlayView: View {
             arrowSize: configuration.arrowSize,
             spotlightPadding: configuration.spotlightPadding,
             screenSize: CGSize(width: fullW, height: fullH),
-            safeAreaInsets: safeAreaInsets
+            safeAreaInsets: safeAreaInsets,
+            safeAreaMargin: configuration.tipSafeAreaMargin
         ) {
             VStack(spacing: 0) {
                 if below {
                     arrowView(pointingUp: true)
-                        .frame(maxWidth: .infinity, alignment: arrowAlignment(anchorRect: adjusted, screenWidth: fullW))
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: arrowAlignment(anchorRect: adjusted, screenWidth: fullW)
+                        )
                         .padding(.horizontal, 24)
                 }
                 
@@ -712,12 +772,18 @@ private struct MDSCoachmarkOverlayView: View {
                 .frame(maxWidth: configuration.tipMaxWidth)
                 .background(configuration.tipBackgroundColor)
                 .cornerRadius(configuration.tipCornerRadius)
-                .shadow(color: Color.black.opacity(0.15), radius: configuration.tipShadowRadius, x: 0, y: 2)
+                .shadow(
+                    color: Color.black.opacity(0.15),
+                    radius: configuration.tipShadowRadius, x: 0, y: 2
+                )
                 .padding(.horizontal, 16)
                 
                 if !below {
                     arrowView(pointingUp: false)
-                        .frame(maxWidth: .infinity, alignment: arrowAlignment(anchorRect: adjusted, screenWidth: fullW))
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: arrowAlignment(anchorRect: adjusted, screenWidth: fullW)
+                        )
                         .padding(.horizontal, 24)
                 }
             }
@@ -732,20 +798,29 @@ private struct MDSCoachmarkOverlayView: View {
             .fill(configuration.tipBackgroundColor)
             .frame(width: configuration.arrowSize * 2, height: configuration.arrowSize)
             .rotationEffect(.degrees(pointingUp ? 0 : 180))
-            .shadow(color: Color.black.opacity(0.08), radius: 2, x: 0, y: pointingUp ? -1 : 1)
+            .shadow(
+                color: Color.black.opacity(0.08),
+                radius: 2, x: 0, y: pointingUp ? -1 : 1
+            )
     }
     
-    private func shouldShowBelow(anchorRect: CGRect, screenHeight: CGFloat) -> Bool {
+    private func shouldShowBelow(
+        anchorRect: CGRect,
+        screenHeight: CGFloat,
+        safeAreaInsets: EdgeInsets
+    ) -> Bool {
         switch configuration.arrowDirection {
-        case .top: return false
-        case .bottom: return true
+        case .top:       return false
+        case .bottom:    return true
         case .automatic:
-            let spaceAbove = anchorRect.minY - configuration.spotlightPadding
-            let spaceBelow = screenHeight - anchorRect.maxY - configuration.spotlightPadding
-            let minSpace: CGFloat = 120
-            if spaceBelow >= minSpace { return true }
-            if spaceAbove >= minSpace { return false }
-            return spaceBelow >= spaceAbove
+            // Available space above (accounting for nav bar/status bar)
+            let above = anchorRect.minY - configuration.spotlightPadding - safeAreaInsets.top
+            // Available space below (accounting for tab bar/home indicator)
+            let below = screenHeight - anchorRect.maxY - configuration.spotlightPadding - safeAreaInsets.bottom
+            let minRequired: CGFloat = 120
+            if below >= minRequired { return true }
+            if above >= minRequired { return false }
+            return below >= above
         }
     }
     
@@ -817,15 +892,6 @@ private struct MDSCoachmarkOverlayModifier: ViewModifier {
 // MARK: - View Extension for Presenting Coachmarks
 
 public extension View {
-    /// Present a coachmark overlay.
-    ///
-    /// - Parameters:
-    ///   - isPresented: Binding to control visibility
-    ///   - configuration: Styling and behavior configuration
-    ///   - items: Array of coachmark items defining the tour
-    ///   - scrollCoordinator: Optional coordinator for consumer-controlled scrolling
-    ///   - onFinished: Called when user completes the tour
-    ///   - onSkipped: Called when user skips, with the step index
     func coachmarkOverlay(
         isPresented: Binding<Bool>,
         configuration: MDSCoachmarkConfiguration = MDSCoachmarkConfiguration(),
@@ -846,94 +912,3 @@ public extension View {
         )
     }
 }
-
-// MARK: - Preview
-
-#if DEBUG
-struct MDSCoachmark_Previews: PreviewProvider {
-    struct PreviewWrapper: View {
-        @State private var showCoachmarks = true
-        @StateObject private var scrollCoordinator = MDSCoachmarkScrollCoordinator()
-        
-        var body: some View {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 40) {
-                        Button("Start Tour") {
-                            showCoachmarks = true
-                        }
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                        .coachmarkAnchor("start-button")
-                        
-                        HStack(spacing: 20) {
-                            Image(systemName: "star.fill")
-                                .font(.title)
-                                .foregroundColor(.yellow)
-                                .coachmarkAnchor("star-icon")
-                            
-                            Image(systemName: "bell.fill")
-                                .font(.title)
-                                .foregroundColor(.red)
-                                .coachmarkAnchor("bell-icon")
-                        }
-                        
-                        Color.clear.frame(height: 600)
-                        
-                        Text("Way down here!")
-                            .font(.headline)
-                            .coachmarkAnchor("bottom-text")
-                        
-                        Color.clear.frame(height: 200)
-                    }
-                    .padding()
-                }
-                .coachmarkScrollProxy("main", proxy: proxy, coordinator: scrollCoordinator)
-            }
-            .coachmarkOverlay(
-                isPresented: $showCoachmarks,
-                items: [
-                    MDSCoachmarkItem(
-                        id: "start-button",
-                        title: "Welcome! 👋",
-                        description: "Tap this button to begin the tour at any time.",
-                        iconName: "hand.wave.fill",
-                        iconColor: .orange
-                    ),
-                    MDSCoachmarkItem(
-                        id: "star-icon",
-                        title: "Favorites",
-                        description: "Mark items as favorites for quick access.",
-                        iconName: "star.fill",
-                        iconColor: .yellow
-                    ),
-                    MDSCoachmarkItem(
-                        id: "bottom-text",
-                        title: "Scrolled Into View!",
-                        description: "The coachmark automatically scrolled to show this element.",
-                        iconName: "arrow.down.circle.fill",
-                        iconColor: .teal
-                    ),
-                    MDSCoachmarkItem(
-                        id: "bell-icon",
-                        title: "Notifications",
-                        description: "Stay updated with important alerts and messages.",
-                        iconName: "bell.fill",
-                        iconColor: .red
-                    )
-                ],
-                scrollCoordinator: scrollCoordinator,
-                onFinished: {
-                    print("Tour finished!")
-                }
-            )
-        }
-    }
-    
-    static var previews: some View {
-        PreviewWrapper()
-    }
-}
-#endif

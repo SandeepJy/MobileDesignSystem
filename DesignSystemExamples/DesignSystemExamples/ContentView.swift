@@ -25,7 +25,7 @@ struct ContentView: View {
                 }
                 .tag(2)
             
-            CoachmarkExamplesView()
+            CoachmarkTestRoot()
                 .tabItem {
                     Label("Coachmark", systemImage: "questionmark.circle")
                 }
@@ -34,20 +34,19 @@ struct ContentView: View {
     }
 }
 
-struct ContentView1: View {
+struct ContentView2: View {
     @StateObject var scrollCoordinator = MDSCoachmarkScrollCoordinator()
-    @State  var showTour = false
-    @ViewBuilder
+    @State var showTour = false
+
     var body: some View {
-        
         ScrollViewReader { mainProxy in
             ScrollView {
                 VStack {
                     Text("Header").coachmarkAnchor("header")
-                    Button("Start Tour") {
-                        showTour = true
-                    }
-                    // Nested horizontal scroll
+                    Button("Start Tour") { showTour = true }
+
+                    VStack { Rectangle().fill(Color.blue) }
+                        .frame(height: 800)
                     ScrollViewReader { carouselProxy in
                         ScrollView(.horizontal) {
                             HStack {
@@ -59,7 +58,7 @@ struct ContentView1: View {
                         }
                         .coachmarkScrollProxy("carousel", proxy: carouselProxy, coordinator: scrollCoordinator)
                     }
-                    
+
                     Text("Footer").coachmarkAnchor("footer")
                 }
             }
@@ -74,6 +73,7 @@ struct ContentView1: View {
                     description: "This is the header.",
                     iconName: "heart.fill",
                     iconColor: .pink
+                    // No scrollProxies needed — already visible
                 ),
                 MDSCoachmarkItem(
                     id: "card-5",
@@ -81,6 +81,7 @@ struct ContentView1: View {
                     description: "This is card 5 in the horizontal scroll.",
                     iconName: "pencil",
                     iconColor: .blue,
+                    // ✅ Same simple API — just list outer → inner
                     scrollProxies: ["main", "carousel"]
                 ),
                 MDSCoachmarkItem(
@@ -96,8 +97,7 @@ struct ContentView1: View {
         )
     }
 }
-
-struct CardView: View {
+struct CardView2: View {
     let index: Int
     var body: some View {
         VStack {
