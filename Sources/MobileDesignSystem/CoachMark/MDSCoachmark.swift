@@ -551,8 +551,8 @@ private struct TipPositioningContainer<Content: View>: View {
 
 // MARK: - Coachmark Overlay View
 
-private struct MDSCoachmarkOverlayView: View {
-    let wrappedContent: AnyView
+private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
+    let wrappedContent: WrappedContent
     @Binding var isPresented: Bool
     let items: [MDSCoachmarkItem]
     let configuration: MDSCoachmarkConfiguration
@@ -878,7 +878,7 @@ private struct MDSCoachmarkOverlayModifier: ViewModifier {
     
     func body(content: Content) -> some View {
         MDSCoachmarkOverlayView(
-            wrappedContent: AnyView(content),
+            wrappedContent: content,
             isPresented: $isPresented,
             items: items,
             configuration: configuration,

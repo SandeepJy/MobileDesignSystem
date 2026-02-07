@@ -97,6 +97,8 @@ struct ContentView2: View {
         )
     }
 }
+
+
 struct CardView2: View {
     let index: Int
     var body: some View {
