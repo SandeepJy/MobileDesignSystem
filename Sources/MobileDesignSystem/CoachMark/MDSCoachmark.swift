@@ -8,13 +8,13 @@ public struct MDSCoachmarkItem: Identifiable, Equatable {
     public let description: String?
     public let iconName: String?
     public let iconColor: Color?
-    
+
     /// Ordered scroll proxy names from outermost to innermost.
     /// - `nil` → no scrolling (item is already visible)
     /// - `["main"]` → scroll main to target
     /// - `["main", "carousel"]` → scroll main to carousel container, then carousel to target
     public let scrollProxies: [String]?
-    
+
     public init(
         id: String,
         title: String,
@@ -30,7 +30,7 @@ public struct MDSCoachmarkItem: Identifiable, Equatable {
         self.iconColor = iconColor
         self.scrollProxies = scrollProxies
     }
-    
+
     public static func == (lhs: MDSCoachmarkItem, rhs: MDSCoachmarkItem) -> Bool {
         lhs.id == rhs.id &&
         lhs.title == rhs.title &&
@@ -42,19 +42,20 @@ public struct MDSCoachmarkItem: Identifiable, Equatable {
 
 // MARK: - Scroll Coordinator
 
-public class MDSCoachmarkScrollCoordinator: ObservableObject {
-    
+@MainActor
+public final class MDSCoachmarkScrollCoordinator: ObservableObject {
+
     /// Stores both the scroll action and the auto-generated container ID for each proxy
     private struct ProxyEntry {
         let containerID: String
         let scrollAction: (String, UnitPoint) -> Void
     }
-    
+
     private var entries: [String: ProxyEntry] = [:]
     private var orderedNames: [String] = []
-    
+
     public init() {}
-    
+
     /// Register a named scroll proxy with its auto-generated container ID
     internal func register(
         _ name: String,
@@ -66,22 +67,22 @@ public class MDSCoachmarkScrollCoordinator: ObservableObject {
         }
         entries[name] = ProxyEntry(containerID: containerID, scrollAction: action)
     }
-    
+
     /// Unregister a scroll proxy
     public func unregister(_ name: String) {
         entries.removeValue(forKey: name)
         orderedNames.removeAll { $0 == name }
     }
-    
+
     public var hasRegisteredProxies: Bool {
         !entries.isEmpty
     }
-    
+
     /// Look up the auto-generated container ID for a named proxy
     internal func containerID(for name: String) -> String? {
         entries[name]?.containerID
     }
-    
+
     /// Execute scroll steps sequentially: each proxy (except the last) scrolls to the
     /// NEXT proxy's container. The last proxy scrolls to the actual target.
     ///
@@ -100,50 +101,49 @@ public class MDSCoachmarkScrollCoordinator: ObservableObject {
             completion()
             return
         }
-        
-        func executeStep(_ index: Int) {
-            guard index < proxyNames.count else {
-                completion()
-                return
-            }
-            
-            let name = proxyNames[index]
-            guard let entry = entries[name] else {
-                // Skip unknown proxy, continue to next
-                executeStep(index + 1)
-                return
-            }
-            
-            // Determine scroll target:
-            // - Last proxy → scroll to the actual target ID
-            // - Earlier proxies → scroll to the NEXT proxy's container ID
-            let scrollTarget: String
-            if index < proxyNames.count - 1 {
-                let nextName = proxyNames[index + 1]
-                scrollTarget = entries[nextName]?.containerID ?? targetID
-            } else {
-                scrollTarget = targetID
-            }
-            
-            let perform = {
-                entry.scrollAction(scrollTarget, anchor)
-            }
-            
-            if animated {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    perform()
+
+        // Task inherits @MainActor from the enclosing class — no explicit annotation needed
+        Task {
+            var index = 0
+            while index < proxyNames.count {
+                let name = proxyNames[index]
+
+                guard let entry = self.entries[name] else {
+                    // Skip unknown proxy, continue to next
+                    index += 1
+                    continue
                 }
-            } else {
-                perform()
+
+                // Determine scroll target:
+                // - Last proxy → scroll to the actual target ID
+                // - Earlier proxies → scroll to the NEXT proxy's container ID
+                let scrollTarget: String
+                if index < proxyNames.count - 1 {
+                    let nextName = proxyNames[index + 1]
+                    scrollTarget = self.entries[nextName]?.containerID ?? targetID
+                } else {
+                    scrollTarget = targetID
+                }
+
+                if animated {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        entry.scrollAction(scrollTarget, anchor)
+                    }
+                } else {
+                    entry.scrollAction(scrollTarget, anchor)
+                }
+
+                index += 1
+
+                // Wait for this scroll to settle, then fire next step
+                if index < proxyNames.count {
+                    try? await Task.sleep(
+                        nanoseconds: UInt64(interStepDelay * 1_000_000_000)
+                    )
+                }
             }
-            
-            // Wait for this scroll to settle, then fire next step
-            DispatchQueue.main.asyncAfter(deadline: .now() + interStepDelay) {
-                executeStep(index + 1)
-            }
+            completion()
         }
-        
-        executeStep(0)
     }
 }
 
@@ -159,15 +159,17 @@ public extension View {
     ) -> some View {
         // Stable, deterministic ID that won't clash with user IDs
         let containerID = "__mds_coachmark_container_\(name)"
-        
+
         return self
             .id(containerID)
             .onAppear {
+                print ("sandeep: registering \(name)")
                 coordinator.register(name, containerID: containerID) { id, anchor in
                     proxy.scrollTo(id, anchor: anchor)
                 }
             }
             .onDisappear {
+                print ("sandeep: Un-registering \(name)")
                 coordinator.unregister(name)
             }
     }
@@ -224,7 +226,7 @@ public struct MDSCoachmarkConfiguration {
     public var scrollInterStepDelay: TimeInterval
     /// Minimum margin between tip and safe area edges (nav bar/tab bar)
     public var tipSafeAreaMargin: CGFloat
-    
+
     public init(
         showExitButton: Bool = true,
         exitButtonLabel: String = "Skip",
@@ -301,8 +303,10 @@ public struct MDSCoachmarkConfiguration {
 // MARK: - Anchor Preference Key
 
 public struct MDSCoachmarkAnchorPreferenceKey: PreferenceKey {
-    public static var defaultValue: [String: Anchor<CGRect>] = [:]
-    
+    // static let satisfies the protocol's `static var { get }` requirement
+    // and is inherently concurrency-safe as immutable state — no annotation needed.
+    public static let defaultValue: [String: Anchor<CGRect>] = [:]
+
     public static func reduce(
         value: inout [String: Anchor<CGRect>],
         nextValue: () -> [String: Anchor<CGRect>]
@@ -339,7 +343,7 @@ private struct MDSCoachmarkTipContentView: View {
     let onNext: () -> Void
     let onSkip: () -> Void
     let onFinish: () -> Void
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             contentLayout
@@ -347,7 +351,7 @@ private struct MDSCoachmarkTipContentView: View {
             navigationBar
         }
     }
-    
+
     @ViewBuilder
     private var contentLayout: some View {
         switch configuration.tipLayoutStyle {
@@ -356,7 +360,7 @@ private struct MDSCoachmarkTipContentView: View {
         case .textOnly:   textOnlyLayout
         }
     }
-    
+
     @ViewBuilder
     private var horizontalLayout: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -364,7 +368,7 @@ private struct MDSCoachmarkTipContentView: View {
             textContent
         }
     }
-    
+
     @ViewBuilder
     private var verticalLayout: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -372,10 +376,10 @@ private struct MDSCoachmarkTipContentView: View {
             textContent
         }
     }
-    
+
     @ViewBuilder
     private var textOnlyLayout: some View { textContent }
-    
+
     @ViewBuilder
     private var textContent: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -392,7 +396,7 @@ private struct MDSCoachmarkTipContentView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
-    
+
     @ViewBuilder
     private func iconView(systemName: String) -> some View {
         let color = item.iconColor ?? configuration.defaultIconColor
@@ -404,16 +408,16 @@ private struct MDSCoachmarkTipContentView: View {
                 height: configuration.defaultIconSize + 8
             )
     }
-    
+
     @ViewBuilder
     private var navigationBar: some View {
         HStack {
             Text("\(stepIndex + 1) of \(totalSteps)")
                 .font(configuration.stepIndicatorFont)
                 .foregroundColor(configuration.stepIndicatorColor)
-            
+
             Spacer()
-            
+
             if configuration.showExitButton && !isLast {
                 Button(action: onSkip) {
                     Text(configuration.exitButtonLabel)
@@ -422,7 +426,7 @@ private struct MDSCoachmarkTipContentView: View {
                 }
                 .padding(.trailing, 8)
             }
-            
+
             if configuration.showBackButton && !isFirst {
                 Button(action: onBack) {
                     HStack(spacing: 4) {
@@ -433,7 +437,7 @@ private struct MDSCoachmarkTipContentView: View {
                 }
                 .padding(.trailing, 4)
             }
-            
+
             Button(action: isLast ? onFinish : onNext) {
                 HStack(spacing: 4) {
                     Text(isLast ? configuration.finishButtonLabel : configuration.nextButtonLabel)
@@ -492,9 +496,9 @@ private struct TipPositioningContainer<Content: View>: View {
     let safeAreaInsets: EdgeInsets
     let safeAreaMargin: CGFloat
     let content: Content
-    
+
     @State private var tipSize: CGSize = .zero
-    
+
     init(
         anchorRect: CGRect,
         showBelow: Bool,
@@ -514,7 +518,7 @@ private struct TipPositioningContainer<Content: View>: View {
         self.safeAreaMargin = safeAreaMargin
         self.content = content()
     }
-    
+
     var body: some View {
         content
             .background(
@@ -529,9 +533,9 @@ private struct TipPositioningContainer<Content: View>: View {
             .frame(maxWidth: .infinity)
             .position(x: screenSize.width / 2, y: computedY)
     }
-    
+
     private var gap: CGFloat { 4 }
-    
+
     private var computedY: CGFloat {
         if showBelow {
             let topEdge = anchorRect.maxY + spotlightPadding + gap + arrowSize
@@ -559,11 +563,11 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
     let onFinished: (() -> Void)?
     let onSkipped: ((Int) -> Void)?
     let scrollCoordinator: MDSCoachmarkScrollCoordinator?
-    
+
     @State private var currentIndex: Int = 0
     @State private var isScrolling: Bool = false
     @State private var tipVisible: Bool = false
-    
+
     var body: some View {
         wrappedContent
             .overlayPreferenceValue(MDSCoachmarkAnchorPreferenceKey.self) { anchors in
@@ -576,7 +580,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                         let rectIsVisible = anchorRect.map {
                             isRectVisible($0, in: geometry.size)
                         } ?? false
-                        
+
                         ZStack {
                             overlayBackground(
                                 anchorRect: (tipVisible && rectIsVisible) ? anchorRect : nil,
@@ -584,7 +588,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                                 in: geometry
                             )
                             .onTapGesture { }
-                            
+
                             if tipVisible, let rect = anchorRect, rectIsVisible {
                                 tipPopover(
                                     for: currentItem,
@@ -595,7 +599,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                                 )
                                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
                             }
-                            
+
                             if isScrolling {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -615,14 +619,14 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                 }
             }
     }
-    
+
     private func scrollToCurrentAnchor() {
         guard currentIndex < items.count else { return }
-        
+
         let currentItem = items[currentIndex]
         isScrolling = true
         tipVisible = false
-        
+
         // Check if we have scroll work to do
         if let coordinator = scrollCoordinator,
            coordinator.hasRegisteredProxies,
@@ -638,9 +642,11 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                 interStepDelay: configuration.scrollInterStepDelay
             ) {
                 // All scroll steps done → final settle delay
-                DispatchQueue.main.asyncAfter(
-                    deadline: .now() + configuration.scrollSettleDelay
-                ) {
+                // Task inherits @MainActor from the enclosing View — no explicit annotation needed
+                Task {
+                    try? await Task.sleep(
+                        nanoseconds: UInt64(configuration.scrollSettleDelay * 1_000_000_000)
+                    )
                     self.isScrolling = false
                     withAnimation(
                         configuration.animateTransitions
@@ -652,7 +658,9 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
             }
         } else {
             // No scrolling needed — show tip after brief layout pass
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // Task inherits @MainActor from the enclosing View — no explicit annotation needed
+            Task {
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 s
                 self.isScrolling = false
                 withAnimation(
                     configuration.animateTransitions
@@ -663,7 +671,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
             }
         }
     }
-    
+
     @ViewBuilder
     private func overlayBackground(
         anchorRect: CGRect?,
@@ -672,7 +680,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
     ) -> some View {
         let pad = configuration.spotlightPadding
         let radius = configuration.spotlightCornerRadius
-        
+
         Canvas { context, size in
             context.fill(
                 Path(CGRect(origin: .zero, size: size)),
@@ -712,7 +720,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
             }
         }
     }
-    
+
     @ViewBuilder
     private func tipPopover(
         for item: MDSCoachmarkItem,
@@ -735,7 +743,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
         )
         let isFirst = stepIndex == 0
         let isLast = stepIndex == items.count - 1
-        
+
         TipPositioningContainer(
             anchorRect: adjusted,
             showBelow: below,
@@ -754,7 +762,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                         )
                         .padding(.horizontal, 24)
                 }
-                
+
                 MDSCoachmarkTipContentView(
                     item: item,
                     stepIndex: stepIndex,
@@ -777,7 +785,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                     radius: configuration.tipShadowRadius, x: 0, y: 2
                 )
                 .padding(.horizontal, 16)
-                
+
                 if !below {
                     arrowView(pointingUp: false)
                         .frame(
@@ -791,7 +799,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
         .transition(.opacity.combined(with: .scale(scale: 0.95)))
         .id(stepIndex)
     }
-    
+
     @ViewBuilder
     private func arrowView(pointingUp: Bool) -> some View {
         Triangle()
@@ -803,7 +811,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                 radius: 2, x: 0, y: pointingUp ? -1 : 1
             )
     }
-    
+
     private func shouldShowBelow(
         anchorRect: CGRect,
         screenHeight: CGFloat,
@@ -823,14 +831,14 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
             return below >= above
         }
     }
-    
+
     private func arrowAlignment(anchorRect: CGRect, screenWidth: CGFloat) -> Alignment {
         let mid = anchorRect.midX
         if mid < screenWidth * 0.3 { return .leading }
         if mid > screenWidth * 0.7 { return .trailing }
         return .center
     }
-    
+
     private func goToNext() {
         let next = min(currentIndex + 1, items.count - 1)
         if configuration.animateTransitions {
@@ -840,7 +848,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
         }
         scrollToCurrentAnchor()
     }
-    
+
     private func goToPrevious() {
         let prev = max(currentIndex - 1, 0)
         if configuration.animateTransitions {
@@ -850,7 +858,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
         }
         scrollToCurrentAnchor()
     }
-    
+
     private func dismiss() {
         if configuration.animateTransitions {
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -875,7 +883,7 @@ private struct MDSCoachmarkOverlayModifier: ViewModifier {
     let scrollCoordinator: MDSCoachmarkScrollCoordinator?
     let onFinished: (() -> Void)?
     let onSkipped: ((Int) -> Void)?
-    
+
     func body(content: Content) -> some View {
         MDSCoachmarkOverlayView(
             wrappedContent: content,

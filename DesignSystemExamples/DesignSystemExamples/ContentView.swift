@@ -38,63 +38,47 @@ struct ContentView2: View {
     @StateObject var scrollCoordinator = MDSCoachmarkScrollCoordinator()
     @State var showTour = false
 
+    @Namespace var topID
+    @Namespace var bottomID
+        
     var body: some View {
-        ScrollViewReader { mainProxy in
+        ScrollViewReader { proxy in
             ScrollView {
-                VStack {
-                    Text("Header").coachmarkAnchor("header")
-                    Button("Start Tour") { showTour = true }
-
-                    VStack { Rectangle().fill(Color.blue) }
-                        .frame(height: 800)
-                    ScrollViewReader { carouselProxy in
-                        ScrollView(.horizontal) {
-                            HStack {
-                                ForEach(0..<10) { i in
-                                    CardView(index: i)
-                                        .coachmarkAnchor("card-\(i)")
-                                }
-                            }
-                        }
-                        .coachmarkScrollProxy("carousel", proxy: carouselProxy, coordinator: scrollCoordinator)
+                Button("Scroll to Bottom") {
+                    withAnimation {
+                        proxy.scrollTo("febottom")
                     }
-
-                    Text("Footer").coachmarkAnchor("footer")
                 }
+                .id(topID)
+                
+                LazyVStack(spacing: 0) {
+                    Text("Lazy Loaded List")
+                        .font(.title.bold())
+                        .padding(.horizontal, 16)
+                        .coachmarkAnchor("t3-title")
+                    
+                    ForEach(0..<1500) { i in
+                        LazyListRow(index: i)
+                            .padding(.horizontal, 16)
+                            .coachmarkAnchor("t3-row-\(i)")
+                    }
+                    
+                    Text("Under foreach")
+                        .id("febottom")
+                }
+                
+                Button("Top") {
+                    withAnimation {
+                        proxy.scrollTo(topID)
+                    }
+                }
+                .id(bottomID)
             }
-            .coachmarkScrollProxy("main", proxy: mainProxy, coordinator: scrollCoordinator)
         }
-        .coachmarkOverlay(
-            isPresented: $showTour,
-            items: [
-                MDSCoachmarkItem(
-                    id: "header",
-                    title: "Header",
-                    description: "This is the header.",
-                    iconName: "heart.fill",
-                    iconColor: .pink
-                    // No scrollProxies needed — already visible
-                ),
-                MDSCoachmarkItem(
-                    id: "card-5",
-                    title: "Card 5",
-                    description: "This is card 5 in the horizontal scroll.",
-                    iconName: "pencil",
-                    iconColor: .blue,
-                    // ✅ Same simple API — just list outer → inner
-                    scrollProxies: ["main", "carousel"]
-                ),
-                MDSCoachmarkItem(
-                    id: "footer",
-                    title: "Footer",
-                    description: "This is a footer.",
-                    iconName: "checkmark",
-                    iconColor: .blue,
-                    scrollProxies: ["main"]
-                )
-            ],
-            scrollCoordinator: scrollCoordinator
-        )
+        
+    }
+    func color(fraction: Double) -> Color {
+        Color(red: fraction, green: 1 - fraction, blue: 0.5)
     }
 }
 
