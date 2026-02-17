@@ -407,31 +407,33 @@ struct Test4_LazyWithCarousels: View {
    
    var body: some View {
        ScrollViewReader { proxy in
-           ScrollView {
-               LazyVStack(alignment: .leading, spacing: 14) {
-                   tourButton
-                       .padding(.horizontal, 16)
-                   
-                   Text("Mixed Lazy + Carousel")
-                       .font(.title.bold())
-                       .padding(.horizontal, 16)
-                       .coachmarkAnchor("t4-title")
-                   
-                   ForEach(0..<40) { i in
-                       if carouselPositions.contains(i) {
-                           // Inline carousel at specific positions
-                           carouselSection(at: i)
-                       } else {
-                           LazyListRow(index: i)
-                               .padding(.horizontal, 16)
-                               .coachmarkAnchor("t4-row-\(i)")
-                       }
-                   }
-               }
-               .padding(.bottom, 40)
-           }
-           .coachmarkScrollProxy("main", proxy: proxy, coordinator: coordinator)
-       }
+          ScrollView {
+              LazyVStack(alignment: .leading, spacing: 14) {
+                  tourButton
+                      .padding(.horizontal, 16)
+
+                  Text("Mixed Lazy + Carousel")
+                      .font(.title.bold())
+                      .padding(.horizontal, 16)
+                      .coachmarkAnchor("t4-title")
+
+                  ForEach(0..<40) { i in
+                      if carouselPositions.contains(i) {
+                          carouselSection(at: i)
+                      } else {
+                          LazyListRow(index: i)
+                              .padding(.horizontal, 16)
+                              .coachmarkAnchor("t4-row-\(i)")
+                      }
+                  }
+              }
+              .padding(.bottom, 40)
+              // ↓ Collect ALL proxy preferences from the entire subtree
+              .collectCoachmarkProxies(into: coordinator)
+          }
+          // ↓ Main proxy still registered via preference
+          .coachmarkScrollProxy("main", proxy: proxy, coordinator: coordinator)
+      }
        .coachmarkOverlay(
            isPresented: $showTour,
            items: [
@@ -450,31 +452,32 @@ struct Test4_LazyWithCarousels: View {
        .toolbar { tourButton }
    }
    
-   @ViewBuilder
-   private func carouselSection(at position: Int) -> some View {
-       let proxyName = "t4-carousel-\(position)"
-       
-       VStack(alignment: .leading, spacing: 8) {
-           Text("── Carousel at position \(position) ──")
-               .font(.caption.bold())
-               .foregroundColor(.secondary)
-               .padding(.horizontal, 16)
-           
-           ScrollViewReader { carouselProxy in
-               ScrollView(.horizontal, showsIndicators: false) {
-                   HStack(spacing: 12) {
-                       ForEach(0..<8) { i in
-                           CardView(index: i)
-                               .coachmarkAnchor("\(proxyName)-card-\(i)")
-                       }
-                   }
-                   .padding(.horizontal, 16)
-               }
-               .coachmarkScrollProxy(proxyName, proxy: carouselProxy, coordinator: coordinator)
-           }
-       }
-       .padding(.vertical, 8)
-   }
+    @ViewBuilder
+    private func carouselSection(at position: Int) -> some View {
+        let proxyName = "t4-carousel-\(position)"
+
+        VStack(alignment: .leading, spacing: 8) {
+            Text("── Carousel at position \(position) ──")
+                .font(.caption.bold())
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 16)
+
+            ScrollViewReader { carouselProxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(0..<8) { i in
+                            CardView(index: i)
+                                .coachmarkAnchor("\(proxyName)-card-\(i)")
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                // ↓ Now emits a preference — no onAppear needed
+                .coachmarkScrollProxy(proxyName, proxy: carouselProxy, coordinator: coordinator)
+            }
+        }
+        .padding(.vertical, 8)
+    }
    
    @ViewBuilder
    var tourButton: some View {
