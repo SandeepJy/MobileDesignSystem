@@ -408,13 +408,57 @@ internal enum MDSCoachmarkConstants {
 ///
 /// ```swift
 /// let config = MDSCoachmarkConfiguration(
+///     overlayColor: Color.black.opacity(0.6),
+///     spotlightBorderColor: .green,
+///     tooltipBorderColor: .green,
 ///     showExitButton: false,
 ///     tipCornerRadius: 16,
 ///     dismissOnOverlayTap: true,
-///     dismissWhenOffscreen: true
+///     dismissWhenOffscreen: true,
+///     isBlocking: false
 /// )
 /// ```
 public struct MDSCoachmarkConfiguration {
+
+    /// The color of the full-screen dim layer rendered behind the spotlight cutout.
+    ///
+    /// Adjust the opacity as well as the hue to match your app's visual style.
+    ///
+    /// ```swift
+    /// MDSCoachmarkConfiguration(overlayColor: Color.indigo.opacity(0.7))
+    /// ```
+    ///
+    /// Defaults to `Color.black.opacity(0.75)`.
+    public var overlayColor: Color
+
+    /// The color of the border drawn around the spotlight cutout.
+    ///
+    /// The border sits on top of the rounded-rectangle cutout that reveals the
+    /// anchored view through the dim overlay. Set ``spotlightBorderWidth`` to `0`
+    /// to suppress the border entirely.
+    ///
+    /// Defaults to `.green`.
+    public var spotlightBorderColor: Color
+
+    /// The stroke width of the border drawn around the spotlight cutout.
+    ///
+    /// Set to `0` to suppress the spotlight border. Defaults to `2`.
+    public var spotlightBorderWidth: CGFloat
+
+    /// The color of the border drawn around the tooltip bubble, including the arrow.
+    ///
+    /// The border traces the outer edge of the combined rounded-rectangle + arrow
+    /// shape. The segment at the base of the arrow (where it meets the rectangle)
+    /// is intentionally excluded so the interior connection appears seamless.
+    /// Set ``tooltipBorderWidth`` to `0` to suppress the border entirely.
+    ///
+    /// Defaults to `.green`.
+    public var tooltipBorderColor: Color
+
+    /// The stroke width of the border drawn around the tooltip bubble.
+    ///
+    /// Set to `0` to suppress the tooltip border. Defaults to `2`.
+    public var tooltipBorderWidth: CGFloat
 
     /// Whether a skip/exit button is shown on non-final steps. Defaults to `true`.
     public var showExitButton: Bool
@@ -424,6 +468,9 @@ public struct MDSCoachmarkConfiguration {
 
     /// Whether tapping the dimmed overlay area outside the tooltip dismisses
     /// the coachmark tour. Defaults to `false`.
+    ///
+    /// - Note: Has no effect when ``isBlocking`` is `false`, because touches on the
+    ///   overlay pass through to the content below rather than being captured.
     public var dismissOnOverlayTap: Bool
 
     /// Whether the coachmark tour automatically dismisses when the current step's
@@ -444,27 +491,73 @@ public struct MDSCoachmarkConfiguration {
     /// Increase this value for very complex lazy layouts. Defaults to `3.0`.
     public var proxyWaitTimeout: TimeInterval
 
+    /// Whether the coachmark overlay blocks user interaction with the underlying content.
+    ///
+    /// When `true` (default), the dimmed overlay captures all touches and prevents the user
+    /// from scrolling or interacting with content beneath it. Only the coachmark tooltip
+    /// controls (Next, Back, Skip/Finish) remain interactive.
+    ///
+    /// When `false`, the overlay is **non-blocking**: touches pass through the dimmed
+    /// background directly to the underlying content, allowing the user to scroll, tap,
+    /// and interact freely while the coachmark tour is active. The tooltip itself remains
+    /// fully interactive in both modes.
+    ///
+    /// ```swift
+    /// // Allow users to scroll the list while the tour is running
+    /// let config = MDSCoachmarkConfiguration(isBlocking: false)
+    /// ```
+    ///
+    /// - Note: When `false`, ``dismissOnOverlayTap`` has no effect because overlay
+    ///   touches are not captured — they pass through to the content below.
+    ///
+    /// Defaults to `true`.
+    public var isBlocking: Bool
+
     /// Creates a configuration with the given overrides.
     ///
     /// All parameters have default values. Pass only the properties you want to customize.
     ///
     /// - Parameters:
+    ///   - overlayColor: The color of the full-screen dim layer. Defaults to
+    ///     `Color.black.opacity(0.75)`.
+    ///   - spotlightBorderColor: Border color drawn around the spotlight cutout.
+    ///     Defaults to `.green`.
+    ///   - spotlightBorderWidth: Stroke width of the spotlight border. Pass `0` to hide.
+    ///     Defaults to `2`.
+    ///   - tooltipBorderColor: Border color drawn around the tooltip bubble and arrow.
+    ///     Defaults to `.green`.
+    ///   - tooltipBorderWidth: Stroke width of the tooltip border. Pass `0` to hide.
+    ///     Defaults to `2`.
     ///   - showExitButton: Whether to show the skip/exit button on non-final steps.
     ///   - tipCornerRadius: Corner radius of the tooltip bubble.
     ///   - dismissOnOverlayTap: Whether tapping outside the tooltip dismisses the tour.
+    ///     Has no effect when `isBlocking` is `false`.
     ///   - dismissWhenOffscreen: Whether to auto-dismiss when the target is offscreen.
     ///   - scrollSettleDelay: Post-scroll delay before showing the tooltip.
     ///   - scrollInterStepDelay: Delay between consecutive scroll steps.
     ///   - proxyWaitTimeout: Maximum wait time for lazy proxy registration.
+    ///   - isBlocking: Whether the overlay blocks user interaction with underlying content.
+    ///     Pass `false` to allow scrolling and tapping through the overlay.
     public init(
+        overlayColor: Color = Color.clear,
+        spotlightBorderColor: Color = .green,
+        spotlightBorderWidth: CGFloat = 1,
+        tooltipBorderColor: Color = .green,
+        tooltipBorderWidth: CGFloat = 1,
         showExitButton: Bool = true,
         tipCornerRadius: CGFloat = 12,
         dismissOnOverlayTap: Bool = true,
         dismissWhenOffscreen: Bool = true,
         scrollSettleDelay: TimeInterval = 0.4,
         scrollInterStepDelay: TimeInterval = 0.35,
-        proxyWaitTimeout: TimeInterval = 3.0
+        proxyWaitTimeout: TimeInterval = 3.0,
+        isBlocking: Bool = false
     ) {
+        self.overlayColor = overlayColor
+        self.spotlightBorderColor = spotlightBorderColor
+        self.spotlightBorderWidth = spotlightBorderWidth
+        self.tooltipBorderColor = tooltipBorderColor
+        self.tooltipBorderWidth = tooltipBorderWidth
         self.showExitButton = showExitButton
         self.tipCornerRadius = tipCornerRadius
         self.dismissOnOverlayTap = dismissOnOverlayTap
@@ -472,6 +565,7 @@ public struct MDSCoachmarkConfiguration {
         self.scrollSettleDelay = scrollSettleDelay
         self.scrollInterStepDelay = scrollInterStepDelay
         self.proxyWaitTimeout = proxyWaitTimeout
+        self.isBlocking = isBlocking
     }
 }
 
@@ -490,7 +584,6 @@ public struct MDSCoachmarkAnchorPreferenceKey: PreferenceKey {
         value.merge(nextValue(), uniquingKeysWith: { $1 })
     }
 }
-
 
 // MARK: - Internal: Visibility Check
 
@@ -525,68 +618,185 @@ private struct Triangle: Shape {
     }
 }
 
-// MARK: - Internal: Arrow Positioning View
+// MARK: - Internal: Tooltip Bubble Shape
 
-private struct ArrowPositioningView: View {
-    let pointingUp: Bool
-    let alignment: MDSCoachmarkArrowAlignment
-    let offset: CGFloat
-    let anchorRect: CGRect
-    let screenWidth: CGFloat
+private struct TooltipBubbleShape: Shape {
 
-    var body: some View {
-        GeometryReader { geometry in
-            Triangle()
-                .fill(MDSCoachmarkConstants.tipBackgroundColor)
-                .frame(
-                    width: MDSCoachmarkConstants.arrowSize * 2,
-                    height: MDSCoachmarkConstants.arrowSize
-                )
-                .rotationEffect(.degrees(pointingUp ? 0 : 180))
-                .shadow(
-                    color: Color.black.opacity(0.08),
-                    radius: 2, x: 0, y: pointingUp ? -1 : 1
-                )
-                .position(
-                    x: arrowXPosition(in: geometry.size.width),
-                    y: MDSCoachmarkConstants.arrowSize / 2
-                )
+    /// When `true`, the arrow points upward (tooltip is shown below the spotlight).
+    /// When `false`, the arrow points downward (tooltip is shown above the spotlight).
+    let arrowPointingUp: Bool
+
+    /// The horizontal centre of the arrow in the shape's local coordinate space.
+    let arrowMidX: CGFloat
+
+    /// The full base width of the triangular arrow.
+    let arrowWidth: CGFloat
+
+    /// The perpendicular height of the triangular arrow from base to tip.
+    let arrowHeight: CGFloat
+
+    /// The corner radius applied to each corner of the rectangular body.
+    let cornerRadius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+
+        // Clamp the corner radius so it never exceeds the available box dimensions.
+        let boxHeight = rect.height - arrowHeight
+        let r = min(cornerRadius, boxHeight / 2, rect.width / 2)
+
+        // Clamp the arrow centre so both base corners remain inside the rounded insets.
+        let halfArrow = arrowWidth / 2
+        let clampedMid = max(
+            rect.minX + r + halfArrow,
+            min(arrowMidX, rect.maxX - r - halfArrow)
+        )
+        let aLeft  = clampedMid - halfArrow
+        let aRight = clampedMid + halfArrow
+
+        if arrowPointingUp {
+            // ┌ Layout (arrow on top) ──────────────────────────────────────┐
+            // │        tip                                                  │
+            // │       /   \                                                 │
+            // │ aLeft       aRight                                          │
+            // │ ╭───────────────────────────────────────────────────────╮  │
+            // │ │               rectangular body                        │  │
+            // │ ╰───────────────────────────────────────────────────────╯  │
+            // └─────────────────────────────────────────────────────────────┘
+
+            let boxTop    = rect.minY + arrowHeight
+            let boxBottom = rect.maxY
+
+            // Start at the arrow's left base (top-left of the rectangle face).
+            path.move(to: CGPoint(x: aLeft, y: boxTop))
+            // Rise to the arrow tip.
+            path.addLine(to: CGPoint(x: clampedMid, y: rect.minY))
+            // Descend to the arrow's right base.
+            path.addLine(to: CGPoint(x: aRight, y: boxTop))
+            // Continue right along the top face to the top-right corner tangent.
+            path.addLine(to: CGPoint(x: rect.maxX - r, y: boxTop))
+            // Top-right corner arc (−90° → 0°).
+            path.addArc(
+                center: CGPoint(x: rect.maxX - r, y: boxTop + r),
+                radius: r,
+                startAngle: .degrees(-90), endAngle: .degrees(0),
+                clockwise: false
+            )
+            // Right face downward.
+            path.addLine(to: CGPoint(x: rect.maxX, y: boxBottom - r))
+            // Bottom-right corner arc (0° → 90°).
+            path.addArc(
+                center: CGPoint(x: rect.maxX - r, y: boxBottom - r),
+                radius: r,
+                startAngle: .degrees(0), endAngle: .degrees(90),
+                clockwise: false
+            )
+            // Bottom face leftward.
+            path.addLine(to: CGPoint(x: rect.minX + r, y: boxBottom))
+            // Bottom-left corner arc (90° → 180°).
+            path.addArc(
+                center: CGPoint(x: rect.minX + r, y: boxBottom - r),
+                radius: r,
+                startAngle: .degrees(90), endAngle: .degrees(180),
+                clockwise: false
+            )
+            // Left face upward.
+            path.addLine(to: CGPoint(x: rect.minX, y: boxTop + r))
+            // Top-left corner arc (180° → 270°).
+            path.addArc(
+                center: CGPoint(x: rect.minX + r, y: boxTop + r),
+                radius: r,
+                startAngle: .degrees(180), endAngle: .degrees(270),
+                clockwise: false
+            )
+            // Top face rightward back to the arrow's left base (closes without drawing
+            // the base segment between aLeft and aRight — that gap is intentional).
+            path.addLine(to: CGPoint(x: aLeft, y: boxTop))
+            path.closeSubpath()
+
+        } else {
+            // ┌ Layout (arrow on bottom) ────────────────────────────────────┐
+            // │ ╭───────────────────────────────────────────────────────╮   │
+            // │ │               rectangular body                        │   │
+            // │ ╰───────────────────────────────────────────────────────╯   │
+            // │ aLeft                       aRight                          │
+            // │       \                   /                                  │
+            // │              tip                                             │
+            // └──────────────────────────────────────────────────────────────┘
+
+            let boxTop    = rect.minY
+            let boxBottom = rect.maxY - arrowHeight
+
+            // Start at the top-left corner tangent.
+            path.move(to: CGPoint(x: rect.minX + r, y: boxTop))
+            // Top face rightward.
+            path.addLine(to: CGPoint(x: rect.maxX - r, y: boxTop))
+            // Top-right corner arc (−90° → 0°).
+            path.addArc(
+                center: CGPoint(x: rect.maxX - r, y: boxTop + r),
+                radius: r,
+                startAngle: .degrees(-90), endAngle: .degrees(0),
+                clockwise: false
+            )
+            // Right face downward.
+            path.addLine(to: CGPoint(x: rect.maxX, y: boxBottom - r))
+            // Bottom-right corner arc (0° → 90°).
+            path.addArc(
+                center: CGPoint(x: rect.maxX - r, y: boxBottom - r),
+                radius: r,
+                startAngle: .degrees(0), endAngle: .degrees(90),
+                clockwise: false
+            )
+            // Bottom face leftward to the arrow's right base.
+            path.addLine(to: CGPoint(x: aRight, y: boxBottom))
+            // Descend to the arrow tip.
+            path.addLine(to: CGPoint(x: clampedMid, y: rect.maxY))
+            // Rise to the arrow's left base.
+            path.addLine(to: CGPoint(x: aLeft, y: boxBottom))
+            // Continue left along the bottom face to the bottom-left corner tangent
+            // (the segment aRight → aLeft is not drawn here — we jump from aLeft
+            // directly, so the arrow base remains open).
+            path.addLine(to: CGPoint(x: rect.minX + r, y: boxBottom))
+            // Bottom-left corner arc (90° → 180°).
+            path.addArc(
+                center: CGPoint(x: rect.minX + r, y: boxBottom - r),
+                radius: r,
+                startAngle: .degrees(90), endAngle: .degrees(180),
+                clockwise: false
+            )
+            // Left face upward.
+            path.addLine(to: CGPoint(x: rect.minX, y: boxTop + r))
+            // Top-left corner arc (180° → 270°).
+            path.addArc(
+                center: CGPoint(x: rect.minX + r, y: boxTop + r),
+                radius: r,
+                startAngle: .degrees(180), endAngle: .degrees(270),
+                clockwise: false
+            )
+            path.closeSubpath()
         }
-        .frame(height: MDSCoachmarkConstants.arrowSize)
-        .padding(.horizontal, 16)
-    }
 
-    private func arrowXPosition(in containerWidth: CGFloat) -> CGFloat {
-        let resolved = resolveAlignment()
-        let base: CGFloat
-
-        switch resolved {
-        case .leading:
-            base = MDSCoachmarkConstants.arrowHorizontalPadding
-        case .trailing:
-            base = containerWidth - MDSCoachmarkConstants.arrowHorizontalPadding
-        case .center, .auto:
-            base = containerWidth / 2
-        }
-
-        return base + offset
-    }
-
-    private func resolveAlignment() -> MDSCoachmarkArrowAlignment {
-        guard alignment == .auto else { return alignment }
-        let mid = anchorRect.midX
-        if mid < screenWidth * 0.3 { return .leading }
-        if mid > screenWidth * 0.7 { return .trailing }
-        return .center
+        return path
     }
 }
 
 // MARK: - Internal: Tip Positioning Container
 
+/// Positions the tooltip bubble vertically relative to the spotlight anchor.
+///
+/// The container measures the height of its content (which already includes the
+/// `arrowHeight` worth of top or bottom padding added in `tipPopover`) and places
+/// the bubble's centre so that:
+///
+/// - **Below the spotlight**: the top edge of the bubble (arrow tip) sits at
+///   `anchorRect.maxY + spotlightPadding + gap`.
+/// - **Above the spotlight**: the bottom edge of the bubble (arrow tip) sits at
+///   `anchorRect.minY − spotlightPadding − gap`.
+///
+/// The result is then clamped to keep the bubble within the safe-area bounds.
 private struct TipPositioningContainer<Content: View>: View {
     let anchorRect: CGRect
     let showBelow: Bool
-    let arrowSize: CGFloat
     let spotlightPadding: CGFloat
     let screenSize: CGSize
     let safeAreaInsets: EdgeInsets
@@ -599,7 +809,6 @@ private struct TipPositioningContainer<Content: View>: View {
     init(
         anchorRect: CGRect,
         showBelow: Bool,
-        arrowSize: CGFloat,
         spotlightPadding: CGFloat,
         screenSize: CGSize,
         safeAreaInsets: EdgeInsets,
@@ -609,7 +818,6 @@ private struct TipPositioningContainer<Content: View>: View {
     ) {
         self.anchorRect = anchorRect
         self.showBelow = showBelow
-        self.arrowSize = arrowSize
         self.spotlightPadding = spotlightPadding
         self.screenSize = screenSize
         self.safeAreaInsets = safeAreaInsets
@@ -631,17 +839,24 @@ private struct TipPositioningContainer<Content: View>: View {
             .position(x: screenSize.width / 2, y: computedY)
     }
 
+    /// A small visual gap between the spotlight border and the arrow tip.
     private var gap: CGFloat { 4 }
 
+    /// Computes the vertical centre of the tooltip bubble in screen coordinates.
+    ///
+    /// `tipSize.height` already includes the `arrowHeight` padding added by `tipPopover`,
+    /// so no separate arrow offset is required here.
     private var computedY: CGFloat {
         if showBelow {
-            let top = anchorRect.maxY + spotlightPadding + gap + arrowSize
+            // Top of the bubble aligns with the bottom of the spotlight + padding + gap.
+            let top = anchorRect.maxY + spotlightPadding + gap
             let y = top + tipSize.height / 2
             let maxY = screenSize.height - safeAreaInsets.bottom
                 - tipSize.height / 2 - safeAreaMargin
             return min(y, maxY)
         } else {
-            let bottom = anchorRect.minY - spotlightPadding - gap - arrowSize
+            // Bottom of the bubble aligns with the top of the spotlight − padding − gap.
+            let bottom = anchorRect.minY - spotlightPadding - gap
             let y = bottom - tipSize.height / 2
             let minY = safeAreaInsets.top + tipSize.height / 2 + safeAreaMargin
             return max(y, minY)
@@ -685,15 +900,19 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                         } ?? false
 
                         ZStack {
+                            // The dim + spotlight canvas. In non-blocking mode, hit-testing
+                            // is disabled so touches fall through to the content below.
                             overlayBackground(
                                 anchorRect: (tipVisible && visible) ? anchorRect : nil,
                                 safeAreaInsets: safeArea,
                                 in: geometry
                             )
                             .onTapGesture {
-                                if configuration.dismissOnOverlayTap {
-                                    handleOverlayTap(at: safeIndex)
-                                }
+                                // Guard is redundant when isBlocking == false (allowsHitTesting
+                                // prevents this gesture from firing), but kept for clarity.
+                                guard configuration.isBlocking,
+                                      configuration.dismissOnOverlayTap else { return }
+                                handleOverlayTap(at: safeIndex)
                             }
 
                             if tipVisible, let rect = anchorRect, visible {
@@ -715,6 +934,8 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                                         CircularProgressViewStyle(tint: .white)
                                     )
                                     .scaleEffect(1.2)
+                                    // In non-blocking mode the spinner should not trap touches.
+                                    .allowsHitTesting(configuration.isBlocking)
                             }
                         }
                         .ignoresSafeArea()
@@ -860,19 +1081,30 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
 
     // MARK: Overlay Background
 
+    /// Builds the full-screen dim layer with an optional spotlight cutout.
+    ///
+    /// The overlay colour comes from ``MDSCoachmarkConfiguration/overlayColor``.
+    /// The spotlight border colour and width come from
+    /// ``MDSCoachmarkConfiguration/spotlightBorderColor`` and
+    /// ``MDSCoachmarkConfiguration/spotlightBorderWidth``.
+    ///
+    /// Hit-testing on the `Canvas` is controlled by ``MDSCoachmarkConfiguration/isBlocking``:
+    /// - `true`  → the canvas captures touches (blocking mode).
+    /// - `false` → the canvas ignores touches, passing them through to the content below
+    ///             so the user can scroll or interact freely (non-blocking mode).
     @ViewBuilder
     private func overlayBackground(
         anchorRect: CGRect?,
         safeAreaInsets: EdgeInsets,
         in geometry: GeometryProxy
     ) -> some View {
-        let pad = MDSCoachmarkConstants.spotlightPadding
+        let pad    = MDSCoachmarkConstants.spotlightPadding
         let radius = MDSCoachmarkConstants.spotlightCornerRadius
 
         Canvas { ctx, size in
             ctx.fill(
                 Path(CGRect(origin: .zero, size: size)),
-                with: .color(MDSCoachmarkConstants.overlayColor)
+                with: .color(configuration.overlayColor)
             )
             if let rect = anchorRect {
                 let adj = CGRect(
@@ -889,9 +1121,13 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
             }
         }
         .compositingGroup()
-        .allowsHitTesting(true)
+        // When non-blocking, disable hit-testing on the dim layer so touches reach
+        // the underlying content (e.g. scroll views, buttons). The tooltip, which is
+        // rendered in a separate ZStack layer above this canvas, is unaffected and
+        // remains fully interactive in both modes.
+        .allowsHitTesting(configuration.isBlocking)
         .overlay {
-            if let rect = anchorRect, MDSCoachmarkConstants.spotlightBorderWidth > 0 {
+            if let rect = anchorRect, configuration.spotlightBorderWidth > 0 {
                 let adj = CGRect(
                     x: rect.origin.x + safeAreaInsets.leading,
                     y: rect.origin.y + safeAreaInsets.top,
@@ -900,17 +1136,31 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                 let spot = adj.insetBy(dx: -pad, dy: -pad)
                 RoundedRectangle(cornerRadius: radius)
                     .stroke(
-                        MDSCoachmarkConstants.spotlightBorderColor,
-                        lineWidth: MDSCoachmarkConstants.spotlightBorderWidth
+                        configuration.spotlightBorderColor,
+                        lineWidth: configuration.spotlightBorderWidth
                     )
                     .frame(width: spot.width, height: spot.height)
                     .position(x: spot.midX, y: spot.midY)
+                    // The border ring follows the same hit-testing rule as the canvas.
+                    .allowsHitTesting(configuration.isBlocking)
             }
         }
     }
 
     // MARK: Tip Popover
 
+    /// Builds the positioned tooltip bubble for the current coachmark step.
+    ///
+    /// The tooltip is rendered as a single ``TooltipBubbleShape`` that combines the
+    /// rounded-rectangle body and the directional arrow into one continuous path.
+    /// This allows a stroke border (``MDSCoachmarkConfiguration/tooltipBorderColor``)
+    /// to trace the full perimeter — including the arrow sides — while deliberately
+    /// leaving the base of the arrow open where it meets the rectangle body, giving
+    /// the appearance of a seamless connection.
+    ///
+    /// The arrow height is injected as top or bottom padding on the content view so
+    /// that `TipPositioningContainer` sees the correct total height when measuring
+    /// the bubble for vertical placement.
     @ViewBuilder
     private func tipPopover(
         for item: MDSCoachmarkItem,
@@ -924,73 +1174,145 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
             y: anchorRect.origin.y + safeAreaInsets.top,
             width: anchorRect.width, height: anchorRect.height
         )
-        let fullH = geometry.size.height + safeAreaInsets.top
-            + safeAreaInsets.bottom
-        let fullW = geometry.size.width + safeAreaInsets.leading
-            + safeAreaInsets.trailing
+        let fullH = geometry.size.height + safeAreaInsets.top + safeAreaInsets.bottom
+        let fullW = geometry.size.width  + safeAreaInsets.leading + safeAreaInsets.trailing
         let below = shouldShowBelow(
             anchorRect: adj,
             screenHeight: fullH,
             safeAreaInsets: safeAreaInsets
         )
+        let arrowSize = MDSCoachmarkConstants.arrowSize
 
         TipPositioningContainer(
             anchorRect: adj,
             showBelow: below,
-            arrowSize: MDSCoachmarkConstants.arrowSize,
             spotlightPadding: MDSCoachmarkConstants.spotlightPadding,
             screenSize: CGSize(width: fullW, height: fullH),
             safeAreaInsets: safeAreaInsets,
             safeAreaMargin: MDSCoachmarkConstants.tipSafeAreaMargin,
             tipCornerRadius: configuration.tipCornerRadius
         ) {
-            VStack(spacing: 0) {
-                if below {
-                    ArrowPositioningView(
-                        pointingUp: true,
-                        alignment: item.arrowAlignment,
-                        offset: item.arrowOffset,
-                        anchorRect: adj,
-                        screenWidth: fullW
+            MDSCoachmarkTipContentView(
+                item: item,
+                stepIndex: stepIndex,
+                totalSteps: items.count,
+                isFirst: stepIndex == 0,
+                isLast: stepIndex == items.count - 1,
+                configuration: configuration,
+                onBack: { goToPrevious() },
+                onNext: { goToNext() },
+                onSkip: { handleSkip(at: stepIndex) },
+                onFinish: { handleFinish() }
+            )
+            .padding(.horizontal, MDSCoachmarkConstants.tipHorizontalPadding)
+            .padding(.vertical, MDSCoachmarkConstants.tipVerticalPadding)
+            .frame(maxWidth: MDSCoachmarkConstants.tipMaxWidth)
+            // Reserve space for the arrow so that the combined height is visible to
+            // TipPositioningContainer's GeometryReader for accurate Y placement.
+            .padding(.top,    below ? arrowSize : 0)
+            .padding(.bottom, below ? 0 : arrowSize)
+            .background(
+                // Fill the combined bubble + arrow shape with the tooltip background
+                // colour and apply the drop shadow to the whole shape at once.
+                GeometryReader { geo in
+                    let midX = resolvedArrowMidX(
+                        for: item,
+                        containerWidth: geo.size.width,
+                        screenWidth: fullW,
+                        anchorRect: adj
+                    )
+                    TooltipBubbleShape(
+                        arrowPointingUp: below,
+                        arrowMidX: midX,
+                        arrowWidth: arrowSize * 2,
+                        arrowHeight: arrowSize,
+                        cornerRadius: configuration.tipCornerRadius
+                    )
+                    .fill(MDSCoachmarkConstants.tipBackgroundColor)
+                    .shadow(
+                        color: Color.black.opacity(0.15),
+                        radius: MDSCoachmarkConstants.tipShadowRadius, x: 0, y: 2
                     )
                 }
-
-                MDSCoachmarkTipContentView(
-                    item: item,
-                    stepIndex: stepIndex,
-                    totalSteps: items.count,
-                    isFirst: stepIndex == 0,
-                    isLast: stepIndex == items.count - 1,
-                    configuration: configuration,
-                    onBack: { goToPrevious() },
-                    onNext: { goToNext() },
-                    onSkip: { handleSkip(at: stepIndex) },
-                    onFinish: { handleFinish() }
-                )
-                .padding(.horizontal, MDSCoachmarkConstants.tipHorizontalPadding)
-                .padding(.vertical, MDSCoachmarkConstants.tipVerticalPadding)
-                .frame(maxWidth: MDSCoachmarkConstants.tipMaxWidth)
-                .background(MDSCoachmarkConstants.tipBackgroundColor)
-                .cornerRadius(configuration.tipCornerRadius)
-                .shadow(
-                    color: Color.black.opacity(0.15),
-                    radius: MDSCoachmarkConstants.tipShadowRadius, x: 0, y: 2
-                )
-                .padding(.horizontal, 16)
-
-                if !below {
-                    ArrowPositioningView(
-                        pointingUp: false,
-                        alignment: item.arrowAlignment,
-                        offset: item.arrowOffset,
-                        anchorRect: adj,
-                        screenWidth: fullW
-                    )
+            )
+            .overlay(
+                // Stroke the same combined shape to produce the configurable border.
+                // The border hugs the arrow on both sides but is absent at the arrow
+                // base — the path simply does not include that segment.
+                Group {
+                    if configuration.tooltipBorderWidth > 0 {
+                        GeometryReader { geo in
+                            let midX = resolvedArrowMidX(
+                                for: item,
+                                containerWidth: geo.size.width,
+                                screenWidth: fullW,
+                                anchorRect: adj
+                            )
+                            TooltipBubbleShape(
+                                arrowPointingUp: below,
+                                arrowMidX: midX,
+                                arrowWidth: arrowSize * 2,
+                                arrowHeight: arrowSize,
+                                cornerRadius: configuration.tipCornerRadius
+                            )
+                            .stroke(
+                                configuration.tooltipBorderColor,
+                                lineWidth: configuration.tooltipBorderWidth
+                            )
+                        }
+                    }
                 }
-            }
+            )
+            .padding(.horizontal, 16)
         }
         .transition(.opacity.combined(with: .scale(scale: 0.95)))
         .id(stepIndex)
+    }
+
+    // MARK: Arrow X Resolution
+
+    /// Computes the horizontal centre of the arrow in the tooltip's local coordinate space.
+    ///
+    /// The calculation mirrors the alignment logic that was previously inside
+    /// `ArrowPositioningView`, keeping the arrow visually anchored to the spotlight.
+    ///
+    /// - Parameters:
+    ///   - item: The coachmark item whose ``MDSCoachmarkItem/arrowAlignment`` and
+    ///     ``MDSCoachmarkItem/arrowOffset`` are applied.
+    ///   - containerWidth: The rendered width of the tooltip content area (from
+    ///     `GeometryReader`). This is the local space in which the arrow X is expressed.
+    ///   - screenWidth: The full screen width used to auto-resolve `.auto` alignment.
+    ///   - anchorRect: The adjusted anchor frame in screen coordinates, used when
+    ///     resolving `.auto` alignment by the anchor's horizontal midpoint.
+    /// - Returns: The arrow's horizontal centre in the tooltip's local coordinate space.
+    private func resolvedArrowMidX(
+        for item: MDSCoachmarkItem,
+        containerWidth: CGFloat,
+        screenWidth: CGFloat,
+        anchorRect: CGRect
+    ) -> CGFloat {
+        // Resolve .auto into a concrete alignment based on where the spotlight sits.
+        let resolved: MDSCoachmarkArrowAlignment
+        if item.arrowAlignment == .auto {
+            let mid = anchorRect.midX
+            if mid < screenWidth * 0.3      { resolved = .leading }
+            else if mid > screenWidth * 0.7 { resolved = .trailing }
+            else                             { resolved = .center }
+        } else {
+            resolved = item.arrowAlignment
+        }
+
+        let base: CGFloat
+        switch resolved {
+        case .leading:
+            base = MDSCoachmarkConstants.arrowHorizontalPadding
+        case .trailing:
+            base = containerWidth - MDSCoachmarkConstants.arrowHorizontalPadding
+        case .center, .auto:
+            base = containerWidth / 2
+        }
+
+        return base + item.arrowOffset
     }
 
     // MARK: Arrow Direction
