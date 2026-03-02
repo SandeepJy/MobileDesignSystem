@@ -34,11 +34,11 @@ import SwiftUI
 /// Pass the coordinator to both `.coachmarkScrollProxy` and `.coachmarkOverlay`.
 @MainActor
 public final class MDSCoachmarkScrollCoordinator: ObservableObject {
-
+    
     private var entries: [String: (String, UnitPoint) -> Void] = [:]
-
+    
     public init() {}
-
+    
     /// Returns the deterministic container ID for a named proxy.
     ///
     /// This matches the `.id()` value applied by `.coachmarkScrollProxy(_:proxy:coordinator:)`.
@@ -49,7 +49,7 @@ public final class MDSCoachmarkScrollCoordinator: ObservableObject {
     public static func defaultContainerID(for proxyName: String) -> String {
         "__mds_coachmark_container_\(proxyName)"
     }
-
+    
     /// Registers a named scroll proxy's action.
     ///
     /// Called automatically by `.coachmarkScrollProxy(_:proxy:coordinator:)` on `onAppear`.
@@ -63,7 +63,7 @@ public final class MDSCoachmarkScrollCoordinator: ObservableObject {
     ) {
         entries[name] = action
     }
-
+    
     /// Removes a previously registered scroll proxy.
     ///
     /// Called automatically by `.coachmarkScrollProxy(_:proxy:coordinator:)` on `onDisappear`.
@@ -72,32 +72,30 @@ public final class MDSCoachmarkScrollCoordinator: ObservableObject {
     public func unregister(_ name: String) {
         entries.removeValue(forKey: name)
     }
-
+    
     /// Whether any scroll proxies are currently registered.
     public var hasRegisteredProxies: Bool { !entries.isEmpty }
-
-    /// Executes scroll steps sequentially, bringing a coachmark target into the visible viewport.
+    
+    /// Executes scroll steps sequentially, bringing a coachmark target into
+    /// the visible viewport.
     ///
-    /// Steps fire from outermost scroll container to innermost. Between each pair of steps,
-    /// the coordinator waits for the next proxy to register (handling lazy content that renders
-    /// only after scrolling) and then pauses for a settle delay.
+    /// Steps fire from outermost scroll container to innermost. Between each
+    /// pair of steps, the coordinator waits for the next proxy to register
+    /// (handling lazy content) and then pauses for a settle delay.
     ///
-    /// ### Target Resolution
+    /// ### Carousel Steps
     ///
-    /// For each step, the scroll target is determined as follows:
-    ///
-    /// | Step Position | `parentID` | Scroll Target |
-    /// |---|---|---|
-    /// | Last | (ignored) | `targetID` — the coachmark item's own anchor |
-    /// | Intermediate | non-nil | The explicit `parentID` value |
-    /// | Intermediate | nil | ``defaultContainerID(for:)`` of the **next** step's proxy |
+    /// When a step has a non-nil ``MDSCoachmarkScrollStep/carouselPage``, the
+    /// coordinator passes the page index (as a string) to the registered action
+    /// instead of a view ID. The carousel proxy interprets this and scrolls to
+    /// the correct page.
     ///
     /// - Parameters:
     ///   - targetID: The coachmark item's anchor ID (the final scroll destination).
     ///   - steps: Ordered scroll steps from outermost to innermost.
-    ///   - anchor: The alignment point within the viewport to scroll the target to.
+    ///   - anchor: The alignment point within the viewport.
     ///   - animated: Whether each scroll operation should animate.
-    ///   - interStepDelay: Seconds to wait between consecutive scroll steps.
+    ///   - interStepDelay: Seconds to wait between consecutive steps.
     ///   - proxyWaitTimeout: Maximum seconds to poll for a lazily registered proxy.
     ///   - completion: Called on the main actor after all steps complete.
     public func scrollSequentially(
@@ -113,9 +111,10 @@ public final class MDSCoachmarkScrollCoordinator: ObservableObject {
             completion()
             return
         }
-
+        
         Task {
             for (index, step) in steps.enumerated() {
+                // Poll until the proxy is registered (handles lazy containers).
                 let pollNanos: UInt64 = 50_000_000
                 let maxPolls = Int(proxyWaitTimeout / 0.05)
                 var polls = 0
@@ -123,13 +122,17 @@ public final class MDSCoachmarkScrollCoordinator: ObservableObject {
                     try? await Task.sleep(nanoseconds: pollNanos)
                     polls += 1
                 }
-
+                
                 guard let scrollAction = entries[step.proxy] else { continue }
-
+                
                 let isLastStep = (index == steps.count - 1)
+                
+                // Determine the scroll target for this step.
                 let scrollTarget: String
-
-                if isLastStep {
+                if let carouselPage = step.carouselPage {
+                    // Carousel steps always pass the page index as the target.
+                    scrollTarget = String(carouselPage)
+                } else if isLastStep {
                     scrollTarget = targetID
                 } else if let parentID = step.parentID {
                     scrollTarget = parentID
@@ -137,7 +140,7 @@ public final class MDSCoachmarkScrollCoordinator: ObservableObject {
                     let nextProxyName = steps[index + 1].proxy
                     scrollTarget = Self.defaultContainerID(for: nextProxyName)
                 }
-
+                
                 if animated {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         scrollAction(scrollTarget, anchor)
@@ -145,7 +148,7 @@ public final class MDSCoachmarkScrollCoordinator: ObservableObject {
                 } else {
                     scrollAction(scrollTarget, anchor)
                 }
-
+                
                 if index < steps.count - 1 {
                     try? await Task.sleep(
                         nanoseconds: UInt64(interStepDelay * 1_000_000_000)
@@ -160,7 +163,7 @@ public final class MDSCoachmarkScrollCoordinator: ObservableObject {
 // MARK: - View Extensions
 
 public extension View {
-
+    
     /// Marks this view as a coachmark spotlight target.
     ///
     /// Applies a stable `.id()` for programmatic scrolling and registers an anchor
@@ -185,7 +188,7 @@ public extension View {
                 value: .bounds
             ) { [id: $0] }
     }
-
+    
     /// Registers a `ScrollViewProxy` with the coachmark coordinator and applies a
     /// deterministic `.id()` to this view.
     ///
@@ -227,7 +230,7 @@ public extension View {
                 coordinator.unregister(name)
             }
     }
-
+    
     /// Assigns a deterministic `.id()` to a lazily rendered container so that a parent
     /// scroll proxy can scroll to it before its children have rendered.
     ///
@@ -281,7 +284,7 @@ public extension View {
     func coachmarkParent(_ id: String) -> some View {
         self.id(id)
     }
-
+    
     /// Presents a coachmark tour overlay on top of this view.
     ///
     /// When `isPresented` becomes `true`, the overlay dims the screen and sequentially
