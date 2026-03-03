@@ -1,57 +1,54 @@
-
 import SwiftUI
 
 extension View {
 
-    /// Registers a ``CarouselScrollProxy`` with the coachmark coordinator and
-    /// applies a deterministic `.id()` so parent scroll proxies can scroll this
-    /// carousel into view.
+    /// Registers any ``MDSCoachmarkScrollable`` with the coachmark coordinator
+    /// and applies a deterministic `.id()` so parent scroll proxies can scroll
+    /// this container into view.
     ///
-    /// Apply this modifier to (or immediately around) the carousel view:
+    /// This is the **universal** registration modifier. It works for carousels,
+    /// paging controllers, or any custom scrollable container.
     ///
     /// ```swift
-    /// SnappingCarousel(items: promos, currentIndex: $page) { promo in
+    /// SnappingCarousel(items: promos, currentIndex: $page,
+    ///                  scrollProxy: carouselProxy) { promo in
     ///     PromoCard(promo: promo)
     /// }
-    /// .coachmarkCarouselProxy(
+    /// .coachmarkScrollableProxy(
     ///     "promos",
-    ///     proxy: carouselProxy,
+    ///     scrollable: carouselProxy,
     ///     coordinator: scrollCoordinator
     /// )
     /// ```
     ///
-    /// Then reference the name in a carousel scroll step:
-    ///
-    /// ```swift
-    /// MDSCoachmarkItem(
-    ///     id: "promo-card-3",
-    ///     title: "Special Offer",
-    ///     scrollSteps: [
-    ///         .init(proxy: "main"),
-    ///         .init(carouselProxy: "promos", page: 3)
-    ///     ]
-    /// )
-    /// ```
-    ///
     /// - Parameters:
-    ///   - name: A unique name for this carousel's scroll capability.
-    ///     Referenced by ``MDSCoachmarkScrollStep/proxy`` in carousel steps.
-    ///   - proxy: The ``CarouselScrollProxy`` produced by the carousel.
+    ///   - name: A unique name for this scrollable's scroll capability.
+    ///   - scrollable: The ``MDSCoachmarkScrollable`` to register.
     ///   - coordinator: The shared ``MDSCoachmarkScrollCoordinator``.
-    /// - Returns: A view with the proxy registered and a deterministic identity applied.
-    public func coachmarkCarouselProxy(
+    public func coachmarkScrollableProxy(
         _ name: String,
-        proxy: CarouselScrollProxy,
+        scrollable: MDSCoachmarkScrollable,
         coordinator: MDSCoachmarkScrollCoordinator
     ) -> some View {
         let containerID = MDSCoachmarkScrollCoordinator.defaultContainerID(for: name)
         return self
             .id(containerID)
             .onAppear {
-                coordinator.registerCarousel(name, proxy: proxy)
+                coordinator.register(name, scrollable: scrollable)
             }
             .onDisappear {
                 coordinator.unregister(name)
             }
+    }
+
+    /// Convenience: registers a ``CarouselScrollProxy`` with the coachmark coordinator.
+    ///
+    /// Equivalent to `.coachmarkScrollableProxy(name, scrollable: proxy, coordinator: coordinator)`.
+    public func coachmarkCarouselProxy(
+        _ name: String,
+        proxy: CarouselScrollProxy,
+        coordinator: MDSCoachmarkScrollCoordinator
+    ) -> some View {
+        coachmarkScrollableProxy(name, scrollable: proxy, coordinator: coordinator)
     }
 }

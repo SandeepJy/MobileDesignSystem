@@ -30,7 +30,6 @@ struct CardView3: View {
          "heart.fill","hexagon.fill","pentagon.fill","cloud.fill","leaf.fill"][index % 10]
     }
 }
-
 struct CarouselDemoView: View {
     @State private var showCoachmarks = false
     @State private var carouselPage = 0
@@ -53,14 +52,13 @@ struct CarouselDemoView: View {
                     Text("Some filler content")
                         .padding(.vertical, 100)
 
-                    // The carousel, with coachmark anchors on individual cards.
                     SnappingCarousel(
                         items: promos,
                         currentIndex: $carouselPage,
                         scrollProxy: carouselProxy
                     ) { promo in
-                        CardView3(index: Int.random(in: 1...5))
-                             .coachmarkAnchor("promo-\(promo.id)")
+                        CardView3(index: promo.id)
+                            .coachmarkAnchor("promo-\(promo.id)")
                     }
                     .frame(height: 200)
                     .coachmarkCarouselProxy(
@@ -72,11 +70,16 @@ struct CarouselDemoView: View {
                     Text("More content below")
                         .padding(.vertical, 200)
                         .coachmarkAnchor("bottom-section")
-                    
-                    CollectionCarouselView(items: promos, currentPage: $ccviewindex) { item in
-                        CardView3(index: Int.random(in: 1...5))
-                             .coachmarkAnchor("collectionview-\(item.id)")
+
+                    CollectionCarouselView(
+                        items: promos,
+                        currentPage: $ccviewindex,
+                        scrollProxy: carouselProxyCC     // ← pass the proxy
+                    ) { item in
+                        CardView3(index: item.id)
+                            .coachmarkAnchor("collectionview-\(item.id)")
                     }
+                    .frame(height: 200)                  // ← explicit height
                     .coachmarkCarouselProxy(
                         "collection",
                         proxy: carouselProxyCC,
@@ -99,37 +102,33 @@ struct CarouselDemoView: View {
                     title: "Special Offer",
                     description: "Check out this promotion.",
                     scrollSteps: [
-                        // First: outer ScrollView scrolls the carousel into view.
                         .init(proxy: "main"),
-                        // Then: carousel scrolls to page 3.
                         .init(carouselProxy: "promos", page: 3)
                     ]
                 ),
                 MDSCoachmarkItem(
-                    id: "promo-6",
-                    title: "Another Deal",
-                    description: "Swipe to find more.",
+                    id: "promo-5",
+                    title: "Special Offer",
+                    description: "Check out this promotion.",
                     scrollSteps: [
                         .init(proxy: "main"),
-                        .init(carouselProxy: "promos", page: 6)
+                        .init(carouselProxy: "promos", page: 5)
                     ]
                 ),
                 MDSCoachmarkItem(
                     id: "collectionview-2",
-                    title: "Another Deal",
-                    description: "Swipe to find more.",
+                    title: "Collection Item",
+                    description: "From the collection carousel.",
                     scrollSteps: [
                         .init(proxy: "main"),
-                        .init(carouselProxy: "promos", page: 6)
+                        .init(carouselProxy: "collection", page: 2)
                     ]
                 ),
                 MDSCoachmarkItem(
                     id: "bottom-section",
                     title: "Footer",
                     description: "That's everything!",
-                    scrollSteps: [
-                        .init(proxy: "main")
-                    ]
+                    scrollSteps: [.init(proxy: "main")]
                 )
             ],
             scrollCoordinator: scrollCoordinator
