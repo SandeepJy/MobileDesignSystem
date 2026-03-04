@@ -1,67 +1,65 @@
 import SwiftUI
 
-// MARK: - MDSCoachmarkScrollStep
-
-/// Describes a single scroll operation within a multi-level scroll chain.
+// Describes a single scroll operation within a multi-level scroll chain.
 ///
-/// Each step pairs a named scroll proxy (the `ScrollView` that performs the scroll)
-/// with an optional target ID (the view it scrolls to). Steps execute sequentially
-/// from outermost scroll container to innermost.
+/// Each step pairs a named scroll proxy (the `ScrollView` or carousel that performs
+/// the scroll) with an optional target ID. Steps execute sequentially from outermost
+/// scroll container to innermost.
+///
+/// ## SwiftUI ScrollView Steps
+///
+/// ```swift
+/// MDSCoachmarkScrollStep(proxy: "main")
+/// MDSCoachmarkScrollStep(proxy: "main", parentID: "section-header")
+/// ```
+///
+/// ## Carousel Steps
+///
+/// When the target lives inside a carousel, use the carousel-specific initializer.
+/// The coordinator will scroll the carousel to the given page index before
+/// proceeding to subsequent steps.
+///
+/// ```swift
+/// MDSCoachmarkScrollStep(carouselProxy: "promos", page: 3)
+/// ```
 ///
 /// ## Automatic Target Inference
 ///
-/// When `parentID` is `nil`:
+/// When `parentID` is `nil` and `carouselPage` is `nil`:
 /// - On the **last step**, the proxy scrolls to the coachmark item's own `id`.
 /// - On an **intermediate step**, the proxy scrolls to the next step's proxy container ID.
-///   This works because `.coachmarkScrollProxy(_:proxy:coordinator:)` applies a
-///   deterministic `.id()` to the scroll view it decorates.
-///
-/// ## Explicit Parent ID
-///
-/// Set `parentID` when the next scroll proxy lives inside a `LazyVStack` or similar
-/// deferred-rendering container. The explicit ID must match the value passed to
-/// `.coachmarkParent(_:)` on the lazy `ForEach` child.
-///
-/// ## Examples
-///
-/// Simple single-level scroll:
-/// ```swift
-/// MDSCoachmarkScrollStep(proxy: "main")
-/// ```
-///
-/// Intermediate step with auto-inference (non-lazy):
-/// ```swift
-/// MDSCoachmarkScrollStep(proxy: "main")  // auto-targets carousel container
-/// ```
-///
-/// Intermediate step with explicit parent (lazy):
-/// ```swift
-/// MDSCoachmarkScrollStep(proxy: "main", parentID: "carousel-parent")
-/// ```
 public struct MDSCoachmarkScrollStep: Equatable, Hashable {
 
     /// The name of the registered scroll proxy that performs this scroll operation.
-    ///
-    /// Must match the `name` parameter passed to `.coachmarkScrollProxy(_:proxy:coordinator:)`.
     public let proxy: String
 
-    /// The explicit scroll target ID for this step.
-    ///
-    /// - When `nil` on the last step: the proxy scrolls to the coachmark item's `id`.
-    /// - When `nil` on an intermediate step: the proxy scrolls to the next step's
-    ///   proxy container ID (auto-inferred).
-    /// - When set: the proxy scrolls to this exact ID. Use this when the next proxy
-    ///   lives inside lazy content and needs `.coachmarkParent(_:)` to be reachable.
+    /// The explicit scroll target ID for this step (SwiftUI scroll views).
     public let parentID: String?
 
-    /// Creates a scroll step.
+    /// The carousel page index to scroll to. Non-nil only for carousel steps.
+    public let carouselPage: Int?
+
+    /// Creates a scroll step targeting a SwiftUI `ScrollViewProxy`.
     ///
     /// - Parameters:
-    ///   - proxy: The name of the scroll proxy that performs this scroll.
+    ///   - proxy: The name of the scroll proxy.
     ///   - parentID: An explicit scroll target. Pass `nil` to use automatic inference.
     public init(proxy: String, parentID: String? = nil) {
         self.proxy = proxy
         self.parentID = parentID
+        self.carouselPage = nil
+    }
+
+    /// Creates a scroll step targeting a ``CarouselScrollProxy``.
+    ///
+    /// - Parameters:
+    ///   - carouselProxy: The name the carousel proxy was registered under.
+    ///   - page: The zero-based page index to scroll to.
+    ///   - parentID: An explicit parent scroll target for a preceding step.
+    public init(carouselProxy: String, page: Int, parentID: String? = nil) {
+        self.proxy = carouselProxy
+        self.parentID = parentID
+        self.carouselPage = page
     }
 }
 

@@ -30,6 +30,12 @@ struct ContentView: View {
                     Label("Coachmark", systemImage: "questionmark.circle")
                 }
                 .tag(3)
+            CarouselDemoView()
+                .tabItem {
+                    Label("Carousel", systemImage: "questionmark.circle")
+                }
+                .tag(4)
+            
         }
     }
 }
