@@ -18,7 +18,10 @@ struct MDSCoachmarkTipContentView: View {
             Divider()
             navigationBar
         }
+        //.accessibilityIdentifier(MDSCoachmarkAccessibility.overlay)
     }
+
+    // MARK: - Content
 
     @ViewBuilder
     private var contentLayout: some View {
@@ -55,11 +58,14 @@ struct MDSCoachmarkTipContentView: View {
                 .font(MDSCoachmarkConstants.titleFont)
                 .foregroundColor(MDSCoachmarkConstants.titleColor)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier(MDSCoachmarkAccessibility.title)
+
             if let desc = item.description, !desc.isEmpty {
                 Text(desc)
                     .font(MDSCoachmarkConstants.descriptionFont)
                     .foregroundColor(MDSCoachmarkConstants.descriptionColor)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier(MDSCoachmarkAccessibility.description)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -77,21 +83,28 @@ struct MDSCoachmarkTipContentView: View {
             )
     }
 
+    // MARK: - Navigation Bar
+
     @ViewBuilder
     private var navigationBar: some View {
         HStack {
             Text("\(stepIndex + 1) of \(totalSteps)")
                 .font(MDSCoachmarkConstants.stepIndicatorFont)
                 .foregroundColor(MDSCoachmarkConstants.stepIndicatorColor)
+                .accessibilityIdentifier(MDSCoachmarkAccessibility.stepIndicator)
+
             Spacer()
+
             if configuration.showExitButton && !isLast {
                 Button(action: onSkip) {
                     Text(MDSCoachmarkConstants.exitButtonLabel)
                         .font(.subheadline)
                         .foregroundColor(MDSCoachmarkConstants.stepIndicatorColor)
                 }
+                .accessibilityIdentifier(MDSCoachmarkAccessibility.skipButton)
                 .padding(.trailing, 8)
             }
+
             if MDSCoachmarkConstants.showBackButton && !isFirst {
                 Button(action: onBack) {
                     HStack(spacing: 4) {
@@ -101,8 +114,10 @@ struct MDSCoachmarkTipContentView: View {
                     }
                     .foregroundColor(MDSCoachmarkConstants.accentColor)
                 }
+                .accessibilityIdentifier(MDSCoachmarkAccessibility.backButton)
                 .padding(.trailing, 4)
             }
+
             Button(action: isLast ? onFinish : onNext) {
                 HStack(spacing: 4) {
                     Text(
@@ -126,6 +141,11 @@ struct MDSCoachmarkTipContentView: View {
                     }
                 )
             }
+            .accessibilityIdentifier(
+                isLast
+                    ? MDSCoachmarkAccessibility.finishButton
+                    : MDSCoachmarkAccessibility.nextButton
+            )
         }
     }
 }

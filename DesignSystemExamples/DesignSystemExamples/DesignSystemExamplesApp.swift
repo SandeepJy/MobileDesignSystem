@@ -9,9 +9,15 @@ import SwiftUI
 
 @main
 struct DesignSystemExamplesApp: App {
+    let arguments = ProcessInfo.processInfo.arguments
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if CommandLine.arguments.contains("--ui-testing-coachmarks") {
+                CarouselDemoView()
+            } else {
+                ContentView()
+            }
         }
     }
 }
