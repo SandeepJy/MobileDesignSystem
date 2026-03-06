@@ -1,7 +1,7 @@
 import SwiftUI
 import MobileDesignSystem
 
-// MARK: - Shared Components (unchanged)
+// MARK: - Shared Components
 
 struct CardView: View {
     let index: Int
@@ -79,6 +79,49 @@ struct PlaceholderBlock: View {
 // MARK: - Test 1: Basic Vertical Scroll
 
 struct Test1_BasicVerticalScroll: View {
+
+    enum Anchor: String {
+        case welcome = "t1-welcome"
+        case banner  = "t1-banner"
+        case stats   = "t1-stats"
+        case bottom  = "t1-bottom"
+        case footer  = "t1-footer"
+    }
+
+    enum Proxy: String {
+        case main
+    }
+
+    enum Step: CaseIterable {
+        case welcome, banner, stats, bottom, footer
+
+        var coachmarkItem: MDSCoachmarkItem {
+            switch self {
+            case .welcome:
+                return .init(id: Anchor.welcome.rawValue, title: "Welcome", description: "Top of page.",
+                             iconName: "hand.wave.fill", iconColor: .orange)
+            case .banner:
+                return .init(id: Anchor.banner.rawValue, title: "Banner", description: "Main banner.",
+                             iconName: "photo.fill", iconColor: .blue,
+                             scrollSteps: [.init(proxy: Proxy.main.rawValue)])
+            case .stats:
+                return .init(id: Anchor.stats.rawValue, title: "Stats", description: "Key metrics.",
+                             iconName: "chart.bar.fill", iconColor: .green,
+                             scrollSteps: [.init(proxy: Proxy.main.rawValue)])
+            case .bottom:
+                return .init(id: Anchor.bottom.rawValue, title: "Bottom", description: "Scrolled way down.",
+                             iconName: "arrow.down.circle.fill", iconColor: .purple,
+                             scrollSteps: [.init(proxy: Proxy.main.rawValue)])
+            case .footer:
+                return .init(id: Anchor.footer.rawValue, title: "Footer", description: "Very bottom.",
+                             iconName: "checkmark.circle.fill", iconColor: .teal,
+                             scrollSteps: [.init(proxy: Proxy.main.rawValue)])
+            }
+        }
+
+        static var allItems: [MDSCoachmarkItem] { allCases.map(\.coachmarkItem) }
+    }
+
     @StateObject var coordinator = MDSCoachmarkScrollCoordinator()
     @State var showTour = false
 
@@ -87,33 +130,24 @@ struct Test1_BasicVerticalScroll: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     tourButton
-                    Text("Welcome Section").font(.title.bold()).coachmarkAnchor("t1-welcome")
-                    PlaceholderBlock(height: 150, color: .blue, label: "Banner").coachmarkAnchor("t1-banner")
+                    Text("Welcome Section").font(.title.bold())
+                        .coachmarkAnchor(Anchor.welcome.rawValue)
+                    PlaceholderBlock(height: 150, color: .blue, label: "Banner")
+                        .coachmarkAnchor(Anchor.banner.rawValue)
                     PlaceholderBlock(height: 300, color: .green, label: "Content")
-                    StatsCard(title: "Users", value: "1,248", icon: "person.2.fill", color: .blue).coachmarkAnchor("t1-stats")
+                    StatsCard(title: "Users", value: "1,248", icon: "person.2.fill", color: .blue)
+                        .coachmarkAnchor(Anchor.stats.rawValue)
                     PlaceholderBlock(height: 400, color: .orange, label: "Large Section")
-                    Text("Bottom Feature").font(.headline).coachmarkAnchor("t1-bottom").padding(.vertical, 20)
-                    PlaceholderBlock(height: 200, color: .purple, label: "Footer").coachmarkAnchor("t1-footer")
+                    Text("Bottom Feature").font(.headline)
+                        .coachmarkAnchor(Anchor.bottom.rawValue).padding(.vertical, 20)
+                    PlaceholderBlock(height: 200, color: .purple, label: "Footer")
+                        .coachmarkAnchor(Anchor.footer.rawValue)
                 }
                 .padding(.horizontal, 16).padding(.bottom, 40)
             }
-            .coachmarkScrollProxy("main", proxy: proxy, coordinator: coordinator)
+            .coachmarkScrollProxy(Proxy.main.rawValue, proxy: proxy, coordinator: coordinator)
         }
-        .coachmarkOverlay(
-            isPresented: $showTour,
-            items: [
-                MDSCoachmarkItem(id: "t1-welcome", title: "Welcome", description: "Top of page.", iconName: "hand.wave.fill", iconColor: .orange),
-                MDSCoachmarkItem(id: "t1-banner", title: "Banner", description: "Main banner.", iconName: "photo.fill", iconColor: .blue,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t1-stats", title: "Stats", description: "Key metrics.", iconName: "chart.bar.fill", iconColor: .green,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t1-bottom", title: "Bottom", description: "Scrolled way down.", iconName: "arrow.down.circle.fill", iconColor: .purple,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t1-footer", title: "Footer", description: "Very bottom.", iconName: "checkmark.circle.fill", iconColor: .teal,
-                                 scrollSteps: [.init(proxy: "main")])
-            ],
-            scrollCoordinator: coordinator
-        )
+        .coachmarkOverlay(isPresented: $showTour, items: Step.allItems, scrollCoordinator: coordinator)
         .navigationTitle("Test 1: Basic Vertical")
         .toolbar { tourButton }
     }
@@ -125,9 +159,59 @@ struct Test1_BasicVerticalScroll: View {
     }
 }
 
-// MARK: - Test 2: Horizontal Carousels (non-lazy, no parent needed)
+// MARK: - Test 2: Horizontal Carousels
 
 struct Test2_HorizontalCarousel: View {
+
+    enum Anchor: String {
+        case title     = "t2-title"
+        case moreTitle = "t2-more-title"
+        case footer    = "t2-footer"
+
+        static func card(_ index: Int) -> String { "t2-card-\(index)" }
+        static func card2(_ index: Int) -> String { "t2-card2-\(index)" }
+    }
+
+    enum Proxy: String {
+        case main
+        case carousel1
+        case carousel2
+    }
+
+    enum Step: CaseIterable {
+        case title, firstCard, card7, moreTitle, card15, footer
+
+        var coachmarkItem: MDSCoachmarkItem {
+            let mainStep: [MDSCoachmarkScrollStep] = [.init(proxy: Proxy.main.rawValue)]
+            switch self {
+            case .title:
+                return .init(id: Anchor.title.rawValue, title: "Featured", description: "Card collection.")
+            case .firstCard:
+                return .init(id: Anchor.card(0), title: "First Card", description: "First in top carousel.",
+                             iconName: "square.fill", iconColor: .blue,
+                             scrollSteps: mainStep + [.init(proxy: Proxy.carousel1.rawValue)])
+            case .card7:
+                return .init(id: Anchor.card(7), title: "Card 7", description: "Scrolled to card 7.",
+                             iconName: "diamond.fill", iconColor: .orange,
+                             scrollSteps: mainStep + [.init(proxy: Proxy.carousel1.rawValue)])
+            case .moreTitle:
+                return .init(id: Anchor.moreTitle.rawValue, title: "More Cards", description: "Second section.",
+                             iconName: "rectangle.fill", iconColor: .purple,
+                             scrollSteps: mainStep)
+            case .card15:
+                return .init(id: Anchor.card2(15), title: "Card 15", description: "Deep in carousel 2.",
+                             iconName: "heart.fill", iconColor: .pink,
+                             scrollSteps: mainStep + [.init(proxy: Proxy.carousel2.rawValue)])
+            case .footer:
+                return .init(id: Anchor.footer.rawValue, title: "Done!", description: "All done.",
+                             iconName: "checkmark.fill", iconColor: .green,
+                             scrollSteps: mainStep)
+            }
+        }
+
+        static var allItems: [MDSCoachmarkItem] { allCases.map(\.coachmarkItem) }
+    }
+
     @StateObject var coordinator = MDSCoachmarkScrollCoordinator()
     @State var showTour = false
 
@@ -136,59 +220,44 @@ struct Test2_HorizontalCarousel: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     tourButton
-                    Text("Featured Cards").font(.title.bold()).coachmarkAnchor("t2-title")
+                    Text("Featured Cards").font(.title.bold())
+                        .coachmarkAnchor(Anchor.title.rawValue)
 
-                    // Carousel 1 — always rendered (not lazy), so no .coachmarkParent needed
                     ScrollViewReader { cp in
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
                                 ForEach(0..<10) { i in
-                                    CardView(index: i).coachmarkAnchor("t2-card-\(i)")
+                                    CardView(index: i).coachmarkAnchor(Anchor.card(i))
                                 }
                             }.padding(.horizontal, 16)
                         }
-                        .coachmarkScrollProxy("carousel1", proxy: cp, coordinator: coordinator)
+                        .coachmarkScrollProxy(Proxy.carousel1.rawValue, proxy: cp, coordinator: coordinator)
                     }
 
                     PlaceholderBlock(height: 600, color: .blue, label: "Large Section")
 
-                    Text("More Cards").font(.title2.bold()).coachmarkAnchor("t2-more-title")
+                    Text("More Cards").font(.title2.bold())
+                        .coachmarkAnchor(Anchor.moreTitle.rawValue)
 
-                    // Carousel 2
                     ScrollViewReader { cp2 in
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
                                 ForEach(0..<10) { i in
-                                    CardView(index: i + 10).coachmarkAnchor("t2-card2-\(i + 10)")
+                                    CardView(index: i + 10).coachmarkAnchor(Anchor.card2(i + 10))
                                 }
                             }.padding(.horizontal, 16)
                         }
-                        .coachmarkScrollProxy("carousel2", proxy: cp2, coordinator: coordinator)
+                        .coachmarkScrollProxy(Proxy.carousel2.rawValue, proxy: cp2, coordinator: coordinator)
                     }
 
-                    PlaceholderBlock(height: 200, color: .green, label: "Footer").coachmarkAnchor("t2-footer")
+                    PlaceholderBlock(height: 200, color: .green, label: "Footer")
+                        .coachmarkAnchor(Anchor.footer.rawValue)
                 }
                 .padding(.bottom, 40)
             }
-            .coachmarkScrollProxy("main", proxy: proxy, coordinator: coordinator)
+            .coachmarkScrollProxy(Proxy.main.rawValue, proxy: proxy, coordinator: coordinator)
         }
-        .coachmarkOverlay(
-            isPresented: $showTour,
-            items: [
-                MDSCoachmarkItem(id: "t2-title", title: "Featured", description: "Card collection."),
-                MDSCoachmarkItem(id: "t2-card-0", title: "First Card", description: "First in top carousel.", iconName: "square.fill", iconColor: .blue,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "carousel1")]),
-                MDSCoachmarkItem(id: "t2-card-7", title: "Card 7", description: "Scrolled to card 7.", iconName: "diamond.fill", iconColor: .orange,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "carousel1")]),
-                MDSCoachmarkItem(id: "t2-more-title", title: "More Cards", description: "Second section.", iconName: "rectangle.fill", iconColor: .purple,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t2-card2-15", title: "Card 15", description: "Deep in carousel 2.", iconName: "heart.fill", iconColor: .pink,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "carousel2")]),
-                MDSCoachmarkItem(id: "t2-footer", title: "Done!", description: "All done.", iconName: "checkmark.fill", iconColor: .green,
-                                 scrollSteps: [.init(proxy: "main")])
-            ],
-            scrollCoordinator: coordinator
-        )
+        .coachmarkOverlay(isPresented: $showTour, items: Step.allItems, scrollCoordinator: coordinator)
         .navigationTitle("Test 2: Carousel")
         .toolbar { tourButton }
     }
@@ -203,6 +272,47 @@ struct Test2_HorizontalCarousel: View {
 // MARK: - Test 3: LazyVStack
 
 struct Test3_LazyVStack: View {
+
+    enum Anchor: String {
+        case title = "t3-title"
+
+        static func row(_ index: Int) -> String { "t3-row-\(index)" }
+    }
+
+    enum Proxy: String {
+        case main
+    }
+
+    enum Step: CaseIterable {
+        case title, row0, row10, row25, row40, row49
+
+        var coachmarkItem: MDSCoachmarkItem {
+            let mainStep: [MDSCoachmarkScrollStep] = [.init(proxy: Proxy.main.rawValue)]
+            switch self {
+            case .title:
+                return .init(id: Anchor.title.rawValue, title: "Lazy List", description: "50 rows.",
+                             iconName: "list.bullet.fill", iconColor: .blue)
+            case .row0:
+                return .init(id: Anchor.row(0), title: "First",
+                             iconName: "arrow.up.circle.fill", iconColor: .green, scrollSteps: mainStep)
+            case .row10:
+                return .init(id: Anchor.row(10), title: "Row 10",
+                             iconName: "arrow.down.circle.fill", iconColor: .orange, scrollSteps: mainStep)
+            case .row25:
+                return .init(id: Anchor.row(25), title: "Row 25",
+                             iconName: "arrow.down.circle.fill", iconColor: .purple, scrollSteps: mainStep)
+            case .row40:
+                return .init(id: Anchor.row(40), title: "Row 40",
+                             iconName: "arrow.down.circle.fill", iconColor: .red, scrollSteps: mainStep)
+            case .row49:
+                return .init(id: Anchor.row(49), title: "Last",
+                             iconName: "checkmark.circle.fill", iconColor: .teal, scrollSteps: mainStep)
+            }
+        }
+
+        static var allItems: [MDSCoachmarkItem] { allCases.map(\.coachmarkItem) }
+    }
+
     @StateObject var coordinator = MDSCoachmarkScrollCoordinator()
     @State var showTour = false
 
@@ -212,32 +322,17 @@ struct Test3_LazyVStack: View {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     tourButton.padding(.horizontal, 16)
                     Text("Lazy Loaded List").font(.title.bold())
-                        .padding(.horizontal, 16).coachmarkAnchor("t3-title")
+                        .padding(.horizontal, 16).coachmarkAnchor(Anchor.title.rawValue)
                     ForEach(0..<50) { i in
-                        LazyListRow(index: i).padding(.horizontal, 16).coachmarkAnchor("t3-row-\(i)")
+                        LazyListRow(index: i).padding(.horizontal, 16)
+                            .coachmarkAnchor(Anchor.row(i))
                     }
                 }
                 .padding(.bottom, 40)
             }
-            .coachmarkScrollProxy("main", proxy: proxy, coordinator: coordinator)
+            .coachmarkScrollProxy(Proxy.main.rawValue, proxy: proxy, coordinator: coordinator)
         }
-        .coachmarkOverlay(
-            isPresented: $showTour,
-            items: [
-                MDSCoachmarkItem(id: "t3-title", title: "Lazy List", description: "50 rows.", iconName: "list.bullet.fill", iconColor: .blue),
-                MDSCoachmarkItem(id: "t3-row-0", title: "First", iconName: "arrow.up.circle.fill", iconColor: .green,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t3-row-10", title: "Row 10", iconName: "arrow.down.circle.fill", iconColor: .orange,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t3-row-25", title: "Row 25", iconName: "arrow.down.circle.fill", iconColor: .purple,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t3-row-40", title: "Row 40", iconName: "arrow.down.circle.fill", iconColor: .red,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t3-row-49", title: "Last", iconName: "checkmark.circle.fill", iconColor: .teal,
-                                 scrollSteps: [.init(proxy: "main")])
-            ],
-            scrollCoordinator: coordinator
-        )
+        .coachmarkOverlay(isPresented: $showTour, items: Step.allItems, scrollCoordinator: coordinator)
         .navigationTitle("Test 3: LazyVStack")
         .toolbar { tourButton }
     }
@@ -249,11 +344,73 @@ struct Test3_LazyVStack: View {
     }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// MARK: - Test 4: LazyVStack + Embedded Carousels  (THE FIX)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MARK: - Test 4: LazyVStack + Embedded Carousels
 
 struct Test4_LazyWithCarousels: View {
+
+    enum Anchor: String {
+        case title = "t4-title"
+
+        static func row(_ index: Int) -> String { "t4-row-\(index)" }
+        static func carouselParent(_ position: Int) -> String { "t4-carousel-\(position)-parent" }
+        static func carouselCard(_ position: Int, card: Int) -> String { "t4-carousel-\(position)-card-\(card)" }
+    }
+
+    enum Proxy: String {
+        case main
+
+        static func carousel(_ position: Int) -> String { "t4-carousel-\(position)" }
+    }
+
+    enum Step: CaseIterable {
+        case title, row2, carousel5card3, row10, carousel15card6, row25, carousel30card5, row39
+
+        var coachmarkItem: MDSCoachmarkItem {
+            let mainStep: [MDSCoachmarkScrollStep] = [.init(proxy: Proxy.main.rawValue)]
+            switch self {
+            case .title:
+                return .init(id: Anchor.title.rawValue, title: "Mixed Layout",
+                             description: "Lazy rows with carousels scattered in.",
+                             iconName: "square.grid.2x2.fill", iconColor: .blue)
+            case .row2:
+                return .init(id: Anchor.row(2), title: "Row 2", description: "An early lazy row.",
+                             iconName: "list.bullet", iconColor: .green, scrollSteps: mainStep)
+            case .carousel5card3:
+                return .init(id: Anchor.carouselCard(5, card: 3), title: "Carousel Card",
+                             description: "Card 3 inside carousel at position 5.",
+                             iconName: "square.fill", iconColor: .orange,
+                             scrollSteps: [.init(proxy: Proxy.main.rawValue, parentID: Anchor.carouselParent(5)),
+                                           .init(proxy: Proxy.carousel(5))])
+            case .row10:
+                return .init(id: Anchor.row(10), title: "Row 10",
+                             description: "Between the first and second carousels.",
+                             iconName: "list.bullet", iconColor: .purple, scrollSteps: mainStep)
+            case .carousel15card6:
+                return .init(id: Anchor.carouselCard(15, card: 6), title: "Deep Carousel Card",
+                             description: "Card 6 in the second carousel (position 15).",
+                             iconName: "heart.fill", iconColor: .pink,
+                             scrollSteps: [.init(proxy: Proxy.main.rawValue, parentID: Anchor.carouselParent(15)),
+                                           .init(proxy: Proxy.carousel(15))])
+            case .row25:
+                return .init(id: Anchor.row(25), title: "Row 25",
+                             description: "Well past the second carousel.",
+                             iconName: "list.bullet", iconColor: .indigo, scrollSteps: mainStep)
+            case .carousel30card5:
+                return .init(id: Anchor.carouselCard(30, card: 5), title: "Last Carousel",
+                             description: "Card 5 in the deepest carousel.",
+                             iconName: "star.fill", iconColor: .yellow,
+                             scrollSteps: [.init(proxy: Proxy.main.rawValue, parentID: Anchor.carouselParent(30)),
+                                           .init(proxy: Proxy.carousel(30))])
+            case .row39:
+                return .init(id: Anchor.row(39), title: "Final Row",
+                             description: "The last lazy row.",
+                             iconName: "checkmark.circle.fill", iconColor: .teal, scrollSteps: mainStep)
+            }
+        }
+
+        static var allItems: [MDSCoachmarkItem] { allCases.map(\.coachmarkItem) }
+    }
+
     @StateObject var coordinator = MDSCoachmarkScrollCoordinator()
     @State var showTour = false
 
@@ -268,133 +425,31 @@ struct Test4_LazyWithCarousels: View {
                     Text("Mixed Lazy + Carousel")
                         .font(.title.bold())
                         .padding(.horizontal, 16)
-                        .coachmarkAnchor("t4-title")
+                        .coachmarkAnchor(Anchor.title.rawValue)
 
                     ForEach(0..<40, id: \.self) { i in
                         if carouselPositions.contains(i) {
-                            // ┌────────────────────────────────────────────┐
-                            // │ .coachmarkParent gives this ForEach child  │
-                            // │ a deterministic .id() that the MAIN proxy  │
-                            // │ can scroll to — even before the carousel   │
-                            // │ inside has rendered.                       │
-                            // └────────────────────────────────────────────┘
                             carouselSection(at: i)
-                                .coachmarkParent("t4-carousel-\(i)-parent")
+                                .coachmarkParent(Anchor.carouselParent(i))
                         } else {
                             LazyListRow(index: i)
                                 .padding(.horizontal, 16)
-                                .coachmarkAnchor("t4-row-\(i)")
+                                .coachmarkAnchor(Anchor.row(i))
                         }
                     }
                 }
                 .padding(.bottom, 40)
             }
-            .coachmarkScrollProxy("main", proxy: proxy, coordinator: coordinator)
+            .coachmarkScrollProxy(Proxy.main.rawValue, proxy: proxy, coordinator: coordinator)
         }
-        .coachmarkOverlay(
-            isPresented: $showTour,
-            items: [
-                // No scrolling needed — already visible
-                MDSCoachmarkItem(
-                    id: "t4-title",
-                    title: "Mixed Layout",
-                    description: "Lazy rows with carousels scattered in.",
-                    iconName: "square.grid.2x2.fill", iconColor: .blue
-                ),
-
-                // Simple main-only scroll
-                MDSCoachmarkItem(
-                    id: "t4-row-2",
-                    title: "Row 2",
-                    description: "An early lazy row.",
-                    iconName: "list.bullet", iconColor: .green,
-                    scrollSteps: [
-                        .init(proxy: "main")
-                    ]
-                ),
-
-                // Two-step: main → carousel parent, then carousel → card
-                MDSCoachmarkItem(
-                    id: "t4-carousel-5-card-3",
-                    title: "Carousel Card",
-                    description: "Card 3 inside carousel at position 5.",
-                    iconName: "square.fill", iconColor: .orange,
-                    scrollSteps: [
-                        .init(proxy: "main", parentID: "t4-carousel-5-parent"),
-                        .init(proxy: "t4-carousel-5")
-                    ]
-                ),
-
-                // Back to a simple row
-                MDSCoachmarkItem(
-                    id: "t4-row-10",
-                    title: "Row 10",
-                    description: "Between the first and second carousels.",
-                    iconName: "list.bullet", iconColor: .purple,
-                    scrollSteps: [
-                        .init(proxy: "main")
-                    ]
-                ),
-
-                // THE PREVIOUSLY BROKEN STEP — now works because:
-                // 1. "main" scrolls to "t4-carousel-15-parent" (deterministic .id)
-                // 2. LazyVStack renders carousel-15 → onAppear registers proxy
-                // 3. Coordinator polls until "t4-carousel-15" proxy appears
-                // 4. "t4-carousel-15" scrolls to "t4-carousel-15-card-6"
-                MDSCoachmarkItem(
-                    id: "t4-carousel-15-card-6",
-                    title: "Deep Carousel Card",
-                    description: "Card 6 in the second carousel (position 15).",
-                    iconName: "heart.fill", iconColor: .pink,
-                    scrollSteps: [
-                        .init(proxy: "main", parentID: "t4-carousel-15-parent"),
-                        .init(proxy: "t4-carousel-15")
-                    ]
-                ),
-
-                MDSCoachmarkItem(
-                    id: "t4-row-25",
-                    title: "Row 25",
-                    description: "Well past the second carousel.",
-                    iconName: "list.bullet", iconColor: .indigo,
-                    scrollSteps: [
-                        .init(proxy: "main")
-                    ]
-                ),
-
-                MDSCoachmarkItem(
-                    id: "t4-carousel-30-card-5",
-                    title: "Last Carousel",
-                    description: "Card 5 in the deepest carousel.",
-                    iconName: "star.fill", iconColor: .yellow,
-                    scrollSteps: [
-                        .init(proxy: "main", parentID: "t4-carousel-30-parent"),
-                        .init(proxy: "t4-carousel-30")
-                    ]
-                ),
-
-                MDSCoachmarkItem(
-                    id: "t4-row-39",
-                    title: "Final Row",
-                    description: "The last lazy row.",
-                    iconName: "checkmark.circle.fill", iconColor: .teal,
-                    scrollSteps: [
-                        .init(proxy: "main")
-                    ]
-                )
-            ],
-            scrollCoordinator: coordinator
-        )
+        .coachmarkOverlay(isPresented: $showTour, items: Step.allItems, scrollCoordinator: coordinator)
         .navigationTitle("Test 4: Lazy + Carousels")
         .toolbar { tourButton }
     }
 
-    // ── Carousel section ──
-    // Only registers .coachmarkScrollProxy (the action).
-    // The .coachmarkParent (deterministic .id) is on the CALLER in the ForEach.
     @ViewBuilder
     private func carouselSection(at position: Int) -> some View {
-        let proxyName = "t4-carousel-\(position)"
+        let proxyName = Proxy.carousel(position)
 
         VStack(alignment: .leading, spacing: 8) {
             Text("── Carousel at position \(position) ──")
@@ -407,7 +462,7 @@ struct Test4_LazyWithCarousels: View {
                     HStack(spacing: 12) {
                         ForEach(0..<8) { i in
                             CardView(index: i)
-                                .coachmarkAnchor("\(proxyName)-card-\(i)")
+                                .coachmarkAnchor(Anchor.carouselCard(position, card: i))
                         }
                     }
                     .padding(.horizontal, 16)
@@ -428,6 +483,66 @@ struct Test4_LazyWithCarousels: View {
 // MARK: - Test 5: Deep Nesting (3 Levels)
 
 struct Test5_DeepNesting: View {
+
+    enum Anchor: String {
+        case title       = "t5-title"
+        case nestedTitle = "t5-nested-title"
+        case innerTitle  = "t5-inner-title"
+        case innerBottom = "t5-inner-bottom"
+        case afterNested = "t5-after-nested"
+        case end         = "t5-end"
+
+        static func deepCard(_ index: Int) -> String { "t5-deep-card-\(index)" }
+    }
+
+    enum Proxy: String {
+        case main
+        case innerVertical
+        case deepCarousel
+    }
+
+    enum Step: CaseIterable {
+        case title, nestedTitle, innerTitle, deepCard0, deepCard7, innerBottom, afterNested, end
+
+        var coachmarkItem: MDSCoachmarkItem {
+            let mainStep: [MDSCoachmarkScrollStep] = [.init(proxy: Proxy.main.rawValue)]
+            let innerStep: [MDSCoachmarkScrollStep] = mainStep + [.init(proxy: Proxy.innerVertical.rawValue)]
+            let deepStep: [MDSCoachmarkScrollStep] = innerStep + [.init(proxy: Proxy.deepCarousel.rawValue)]
+
+            switch self {
+            case .title:
+                return .init(id: Anchor.title.rawValue, title: "Deep Nesting",
+                             description: "3 levels of scrolling.",
+                             iconName: "square.layers.fill", iconColor: .blue)
+            case .nestedTitle:
+                return .init(id: Anchor.nestedTitle.rawValue, title: "Nested Section",
+                             iconName: "arrow.down.circle.fill", iconColor: .green, scrollSteps: mainStep)
+            case .innerTitle:
+                return .init(id: Anchor.innerTitle.rawValue, title: "Inner Scroll",
+                             iconName: "square.fill", iconColor: .teal, scrollSteps: innerStep)
+            case .deepCard0:
+                return .init(id: Anchor.deepCard(0), title: "Deep Card 0",
+                             description: "First card in deeply nested carousel.",
+                             iconName: "diamond.fill", iconColor: .orange, scrollSteps: deepStep)
+            case .deepCard7:
+                return .init(id: Anchor.deepCard(7), title: "Deep Card 7",
+                             description: "Scrolled horizontally 3 levels deep.",
+                             iconName: "star.fill", iconColor: .yellow, scrollSteps: deepStep)
+            case .innerBottom:
+                return .init(id: Anchor.innerBottom.rawValue, title: "Inner Bottom",
+                             iconName: "arrow.down.to.line", iconColor: .purple, scrollSteps: innerStep)
+            case .afterNested:
+                return .init(id: Anchor.afterNested.rawValue, title: "After Nested",
+                             iconName: "arrow.up.circle.fill", iconColor: .indigo, scrollSteps: mainStep)
+            case .end:
+                return .init(id: Anchor.end.rawValue, title: "Complete!",
+                             iconName: "checkmark.circle.fill", iconColor: .green, scrollSteps: mainStep)
+            }
+        }
+
+        static var allItems: [MDSCoachmarkItem] { allCases.map(\.coachmarkItem) }
+    }
+
     @StateObject var coordinator = MDSCoachmarkScrollCoordinator()
     @State var showTour = false
 
@@ -438,22 +553,21 @@ struct Test5_DeepNesting: View {
                     tourButton
 
                     Text("Deep Nesting Test").font(.title.bold())
-                        .padding(.horizontal, 16).coachmarkAnchor("t5-title")
+                        .padding(.horizontal, 16).coachmarkAnchor(Anchor.title.rawValue)
 
                     PlaceholderBlock(height: 500, color: .blue, label: "Spacer")
                         .padding(.horizontal, 16)
 
                     Text("Nested Section").font(.headline)
-                        .padding(.horizontal, 16).coachmarkAnchor("t5-nested-title")
+                        .padding(.horizontal, 16).coachmarkAnchor(Anchor.nestedTitle.rawValue)
 
-                    // Level 2 — vertical inner scroll
                     ScrollViewReader { innerProxy in
                         ScrollView(.vertical) {
                             VStack(alignment: .leading, spacing: 16) {
                                 Text("Inner Vertical Scroll").font(.subheadline.bold())
                                     .foregroundColor(.secondary)
                                     .padding(.horizontal, 16)
-                                    .coachmarkAnchor("t5-inner-title")
+                                    .coachmarkAnchor(Anchor.innerTitle.rawValue)
 
                                 PlaceholderBlock(height: 300, color: .green, label: "Inner spacer")
                                     .padding(.horizontal, 16)
@@ -461,69 +575,41 @@ struct Test5_DeepNesting: View {
                                 Text("Carousel Inside Inner Scroll").font(.subheadline)
                                     .foregroundColor(.secondary).padding(.horizontal, 16)
 
-                                // Level 3 — horizontal carousel
                                 ScrollViewReader { deepProxy in
                                     ScrollView(.horizontal, showsIndicators: false) {
                                         HStack(spacing: 12) {
                                             ForEach(0..<10) { i in
                                                 CardView(index: i + 20)
-                                                    .coachmarkAnchor("t5-deep-card-\(i)")
+                                                    .coachmarkAnchor(Anchor.deepCard(i))
                                             }
                                         }.padding(.horizontal, 16)
                                     }
-                                    .coachmarkScrollProxy("deepCarousel", proxy: deepProxy, coordinator: coordinator)
+                                    .coachmarkScrollProxy(Proxy.deepCarousel.rawValue, proxy: deepProxy, coordinator: coordinator)
                                 }
 
                                 PlaceholderBlock(height: 200, color: .purple, label: "More inner content")
-                                    .padding(.horizontal, 16).coachmarkAnchor("t5-inner-bottom")
+                                    .padding(.horizontal, 16).coachmarkAnchor(Anchor.innerBottom.rawValue)
                             }
                             .padding(.vertical, 12)
                         }
                         .frame(height: 500)
                         .background(Color(UIColor.systemGray6))
                         .cornerRadius(12)
-                        .coachmarkScrollProxy("innerVertical", proxy: innerProxy, coordinator: coordinator)
+                        .coachmarkScrollProxy(Proxy.innerVertical.rawValue, proxy: innerProxy, coordinator: coordinator)
                     }
                     .padding(.horizontal, 16)
 
                     PlaceholderBlock(height: 300, color: .orange, label: "After nested")
-                        .padding(.horizontal, 16).coachmarkAnchor("t5-after-nested")
+                        .padding(.horizontal, 16).coachmarkAnchor(Anchor.afterNested.rawValue)
 
                     Text("End of Page").font(.headline)
-                        .padding(.horizontal, 16).coachmarkAnchor("t5-end")
+                        .padding(.horizontal, 16).coachmarkAnchor(Anchor.end.rawValue)
                 }
                 .padding(.bottom, 40)
             }
-            .coachmarkScrollProxy("main", proxy: mainProxy, coordinator: coordinator)
+            .coachmarkScrollProxy(Proxy.main.rawValue, proxy: mainProxy, coordinator: coordinator)
         }
-        .coachmarkOverlay(
-            isPresented: $showTour,
-            items: [
-                MDSCoachmarkItem(id: "t5-title", title: "Deep Nesting", description: "3 levels of scrolling.", iconName: "square.layers.fill", iconColor: .blue),
-                MDSCoachmarkItem(id: "t5-nested-title", title: "Nested Section", iconName: "arrow.down.circle.fill", iconColor: .green,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t5-inner-title", title: "Inner Scroll", iconName: "square.fill", iconColor: .teal,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "innerVertical")]),
-
-                // 3-level scroll: main → innerVertical → deepCarousel → card
-                MDSCoachmarkItem(id: "t5-deep-card-0", title: "Deep Card 0", description: "First card in deeply nested carousel.",
-                                 iconName: "diamond.fill", iconColor: .orange,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "innerVertical"), .init(proxy: "deepCarousel")]),
-                MDSCoachmarkItem(id: "t5-deep-card-7", title: "Deep Card 7", description: "Scrolled horizontally 3 levels deep.",
-                                 iconName: "star.fill", iconColor: .yellow,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "innerVertical"), .init(proxy: "deepCarousel")]),
-
-                MDSCoachmarkItem(id: "t5-inner-bottom", title: "Inner Bottom", iconName: "arrow.down.to.line", iconColor: .purple,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "innerVertical")]),
-
-                MDSCoachmarkItem(id: "t5-after-nested", title: "After Nested", iconName: "arrow.up.circle.fill", iconColor: .indigo,
-                                 scrollSteps: [.init(proxy: "main")]),
-                
-                MDSCoachmarkItem(id: "t5-end", title: "Complete!", iconName: "checkmark.circle.fill", iconColor: .green,
-                                 scrollSteps: [.init(proxy: "main")])
-            ],
-            scrollCoordinator: coordinator
-        )
+        .coachmarkOverlay(isPresented: $showTour, items: Step.allItems, scrollCoordinator: coordinator)
         .navigationTitle("Test 5: Deep Nesting")
         .toolbar { tourButton }
     }
@@ -538,6 +624,60 @@ struct Test5_DeepNesting: View {
 // MARK: - Test 6: Pinned Header + Carousel
 
 struct Test6_PinnedHeaderLazy: View {
+
+    enum Anchor: String {
+        case header     = "t6-header"
+        case categories = "t6-categories"
+        case followers  = "t6-followers"
+        case posts      = "t6-posts"
+
+        static func featured(_ index: Int) -> String { "t6-featured-\(index)" }
+        static func row(_ index: Int) -> String { "t6-row-\(index)" }
+    }
+
+    enum Proxy: String {
+        case main
+        case carousel = "t6-carousel"
+    }
+
+    enum Step: CaseIterable {
+        case header, categories, followers, featured0, featured8, row5, row20, row29
+
+        var coachmarkItem: MDSCoachmarkItem {
+            let mainStep: [MDSCoachmarkScrollStep] = [.init(proxy: Proxy.main.rawValue)]
+            switch self {
+            case .header:
+                return .init(id: Anchor.header.rawValue, title: "Profile Header",
+                             iconName: "person.circle.fill", iconColor: .blue)
+            case .categories:
+                return .init(id: Anchor.categories.rawValue, title: "Categories",
+                             iconName: "tag.fill", iconColor: .purple, scrollSteps: mainStep)
+            case .followers:
+                return .init(id: Anchor.followers.rawValue, title: "Followers",
+                             iconName: "person.2.fill", iconColor: .blue, scrollSteps: mainStep)
+            case .featured0:
+                return .init(id: Anchor.featured(0), title: "First Featured",
+                             iconName: "star.fill", iconColor: .yellow,
+                             scrollSteps: mainStep + [.init(proxy: Proxy.carousel.rawValue)])
+            case .featured8:
+                return .init(id: Anchor.featured(8), title: "Featured 8",
+                             iconName: "diamond.fill", iconColor: .orange,
+                             scrollSteps: mainStep + [.init(proxy: Proxy.carousel.rawValue)])
+            case .row5:
+                return .init(id: Anchor.row(5), title: "List Item",
+                             iconName: "list.bullet.fill", iconColor: .green, scrollSteps: mainStep)
+            case .row20:
+                return .init(id: Anchor.row(20), title: "Deep Item",
+                             iconName: "arrow.down.circle.fill", iconColor: .indigo, scrollSteps: mainStep)
+            case .row29:
+                return .init(id: Anchor.row(29), title: "Last Item",
+                             iconName: "checkmark.circle.fill", iconColor: .teal, scrollSteps: mainStep)
+            }
+        }
+
+        static var allItems: [MDSCoachmarkItem] { allCases.map(\.coachmarkItem) }
+    }
+
     @StateObject var coordinator = MDSCoachmarkScrollCoordinator()
     @State var showTour = false
     private let categories = ["All", "Popular", "New", "Trending", "Classic"]
@@ -549,9 +689,9 @@ struct Test6_PinnedHeaderLazy: View {
                     Section {
                         HStack(spacing: 12) {
                             StatsCard(title: "Followers", value: "2.4K", icon: "person.2.fill", color: .blue)
-                                .coachmarkAnchor("t6-followers")
+                                .coachmarkAnchor(Anchor.followers.rawValue)
                             StatsCard(title: "Posts", value: "148", icon: "square.grid.2x2.fill", color: .purple)
-                                .coachmarkAnchor("t6-posts")
+                                .coachmarkAnchor(Anchor.posts.rawValue)
                         }
                         .padding(.horizontal, 16).padding(.top, 12)
 
@@ -562,11 +702,11 @@ struct Test6_PinnedHeaderLazy: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {
                                     ForEach(0..<10) { i in
-                                        CardView(index: i + 30).coachmarkAnchor("t6-featured-\(i)")
+                                        CardView(index: i + 30).coachmarkAnchor(Anchor.featured(i))
                                     }
                                 }.padding(.horizontal, 16)
                             }
-                            .coachmarkScrollProxy("t6-carousel", proxy: cp, coordinator: coordinator)
+                            .coachmarkScrollProxy(Proxy.carousel.rawValue, proxy: cp, coordinator: coordinator)
                         }
                         .padding(.top, 8)
                     } header: {
@@ -575,7 +715,7 @@ struct Test6_PinnedHeaderLazy: View {
                             Text("My Profile").font(.title.bold())
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 16).padding(.top, 8)
-                                .coachmarkAnchor("t6-header")
+                                .coachmarkAnchor(Anchor.header.rawValue)
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(categories, id: \.self) { cat in
@@ -587,7 +727,7 @@ struct Test6_PinnedHeaderLazy: View {
                                     }
                                 }.padding(.horizontal, 16)
                             }
-                            .padding(.vertical, 10).coachmarkAnchor("t6-categories")
+                            .padding(.vertical, 10).coachmarkAnchor(Anchor.categories.rawValue)
                             Divider()
                         }
                         .background(Color(UIColor.systemBackground))
@@ -596,34 +736,14 @@ struct Test6_PinnedHeaderLazy: View {
                     ForEach(0..<30) { i in
                         LazyListRow(index: i + 100)
                             .padding(.horizontal, 16).padding(.top, 8)
-                            .coachmarkAnchor("t6-row-\(i)")
+                            .coachmarkAnchor(Anchor.row(i))
                     }
                 }
                 .padding(.bottom, 40)
             }
-            .coachmarkScrollProxy("main", proxy: proxy, coordinator: coordinator)
+            .coachmarkScrollProxy(Proxy.main.rawValue, proxy: proxy, coordinator: coordinator)
         }
-        .coachmarkOverlay(
-            isPresented: $showTour,
-            items: [
-                MDSCoachmarkItem(id: "t6-header", title: "Profile Header", iconName: "person.circle.fill", iconColor: .blue),
-                MDSCoachmarkItem(id: "t6-categories", title: "Categories", iconName: "tag.fill", iconColor: .purple,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t6-followers", title: "Followers", iconName: "person.2.fill", iconColor: .blue,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t6-featured-0", title: "First Featured", iconName: "star.fill", iconColor: .yellow,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "t6-carousel")]),
-                MDSCoachmarkItem(id: "t6-featured-8", title: "Featured 8", iconName: "diamond.fill", iconColor: .orange,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "t6-carousel")]),
-                MDSCoachmarkItem(id: "t6-row-5", title: "List Item", iconName: "list.bullet.fill", iconColor: .green,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t6-row-20", title: "Deep Item", iconName: "arrow.down.circle.fill", iconColor: .indigo,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t6-row-29", title: "Last Item", iconName: "checkmark.circle.fill", iconColor: .teal,
-                                 scrollSteps: [.init(proxy: "main")])
-            ],
-            scrollCoordinator: coordinator
-        )
+        .coachmarkOverlay(isPresented: $showTour, items: Step.allItems, scrollCoordinator: coordinator)
         .navigationTitle("Test 6: Pinned Header")
         .toolbar { tourButton }
     }
@@ -638,6 +758,60 @@ struct Test6_PinnedHeaderLazy: View {
 // MARK: - Test 7: Multiple Carousels + Large Gaps
 
 struct Test7_MultipleCarouselsLargeGaps: View {
+
+    enum Anchor: String {
+        case title  = "t7-title"
+        case banner = "t7-banner"
+        case end    = "t7-end"
+
+        static func card(section: String, index: Int) -> String { "t7-\(section)-card-\(index)" }
+    }
+
+    enum Proxy: String {
+        case main
+        case trending = "t7-trending"
+        case topRated = "t7-toprated"
+        case new      = "t7-new"
+        case premium  = "t7-premium"
+    }
+
+    enum Step: CaseIterable {
+        case title, trending5, banner, topRated6, new3, premium7, end
+
+        var coachmarkItem: MDSCoachmarkItem {
+            let mainStep: [MDSCoachmarkScrollStep] = [.init(proxy: Proxy.main.rawValue)]
+            switch self {
+            case .title:
+                return .init(id: Anchor.title.rawValue, title: "App Store",
+                             iconName: "square.grid.2x2.fill", iconColor: .blue)
+            case .trending5:
+                return .init(id: Anchor.card(section: "trending", index: 5), title: "Trending #5",
+                             iconName: "flame.fill", iconColor: .red,
+                             scrollSteps: mainStep + [.init(proxy: Proxy.trending.rawValue)])
+            case .banner:
+                return .init(id: Anchor.banner.rawValue, title: "Banner",
+                             iconName: "megaphone.fill", iconColor: .orange, scrollSteps: mainStep)
+            case .topRated6:
+                return .init(id: Anchor.card(section: "toprated", index: 6), title: "Top Rated #6",
+                             iconName: "star.fill", iconColor: .yellow,
+                             scrollSteps: mainStep + [.init(proxy: Proxy.topRated.rawValue)])
+            case .new3:
+                return .init(id: Anchor.card(section: "new", index: 3), title: "New #3",
+                             iconName: "plus.circle.fill", iconColor: .green,
+                             scrollSteps: mainStep + [.init(proxy: Proxy.new.rawValue)])
+            case .premium7:
+                return .init(id: Anchor.card(section: "premium", index: 7), title: "Premium #7",
+                             iconName: "diamond.fill", iconColor: .purple,
+                             scrollSteps: mainStep + [.init(proxy: Proxy.premium.rawValue)])
+            case .end:
+                return .init(id: Anchor.end.rawValue, title: "Complete!",
+                             iconName: "checkmark.circle.fill", iconColor: .teal, scrollSteps: mainStep)
+            }
+        }
+
+        static var allItems: [MDSCoachmarkItem] { allCases.map(\.coachmarkItem) }
+    }
+
     @StateObject var coordinator = MDSCoachmarkScrollCoordinator()
     @State var showTour = false
 
@@ -647,57 +821,43 @@ struct Test7_MultipleCarouselsLargeGaps: View {
                 VStack(alignment: .leading, spacing: 24) {
                     tourButton
                     Text("App Store Style").font(.title.bold())
-                        .padding(.horizontal, 16).coachmarkAnchor("t7-title")
+                        .padding(.horizontal, 16).coachmarkAnchor(Anchor.title.rawValue)
 
-                    carouselSection(label: "🔥 Trending", proxyName: "t7-trending", startIndex: 0, anchorPrefix: "t7-trending")
-                    PlaceholderBlock(height: 400, color: .blue, label: "Banner").padding(.horizontal, 16).coachmarkAnchor("t7-banner")
-                    carouselSection(label: "⭐ Top Rated", proxyName: "t7-toprated", startIndex: 10, anchorPrefix: "t7-toprated")
+                    carouselSection(label: "🔥 Trending", proxy: .trending, startIndex: 0, sectionKey: "trending")
+                    PlaceholderBlock(height: 400, color: .blue, label: "Banner")
+                        .padding(.horizontal, 16).coachmarkAnchor(Anchor.banner.rawValue)
+                    carouselSection(label: "⭐ Top Rated", proxy: .topRated, startIndex: 10, sectionKey: "toprated")
                     PlaceholderBlock(height: 500, color: .green, label: "Ad Block").padding(.horizontal, 16)
-                    carouselSection(label: "🆕 New", proxyName: "t7-new", startIndex: 20, anchorPrefix: "t7-new")
+                    carouselSection(label: "🆕 New", proxy: .new, startIndex: 20, sectionKey: "new")
                     PlaceholderBlock(height: 300, color: .purple, label: "Newsletter").padding(.horizontal, 16)
-                    carouselSection(label: "💎 Premium", proxyName: "t7-premium", startIndex: 30, anchorPrefix: "t7-premium")
-                    Text("That's all!").font(.headline).padding(.horizontal, 16).padding(.vertical, 20).coachmarkAnchor("t7-end")
+                    carouselSection(label: "💎 Premium", proxy: .premium, startIndex: 30, sectionKey: "premium")
+                    Text("That's all!").font(.headline)
+                        .padding(.horizontal, 16).padding(.vertical, 20)
+                        .coachmarkAnchor(Anchor.end.rawValue)
                 }
                 .padding(.bottom, 40)
             }
-            .coachmarkScrollProxy("main", proxy: proxy, coordinator: coordinator)
+            .coachmarkScrollProxy(Proxy.main.rawValue, proxy: proxy, coordinator: coordinator)
         }
-        .coachmarkOverlay(
-            isPresented: $showTour,
-            items: [
-                MDSCoachmarkItem(id: "t7-title", title: "App Store", iconName: "square.grid.2x2.fill", iconColor: .blue),
-                MDSCoachmarkItem(id: "t7-trending-card-5", title: "Trending #5", iconName: "flame.fill", iconColor: .red,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "t7-trending")]),
-                MDSCoachmarkItem(id: "t7-banner", title: "Banner", iconName: "megaphone.fill", iconColor: .orange,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t7-toprated-card-6", title: "Top Rated #6", iconName: "star.fill", iconColor: .yellow,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "t7-toprated")]),
-                MDSCoachmarkItem(id: "t7-new-card-3", title: "New #3", iconName: "plus.circle.fill", iconColor: .green,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "t7-new")]),
-                MDSCoachmarkItem(id: "t7-premium-card-7", title: "Premium #7", iconName: "diamond.fill", iconColor: .purple,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "t7-premium")]),
-                MDSCoachmarkItem(id: "t7-end", title: "Complete!", iconName: "checkmark.circle.fill", iconColor: .teal,
-                                 scrollSteps: [.init(proxy: "main")])
-            ],
-            scrollCoordinator: coordinator
-        )
+        .coachmarkOverlay(isPresented: $showTour, items: Step.allItems, scrollCoordinator: coordinator)
         .navigationTitle("Test 7: Multi Carousel")
         .toolbar { tourButton }
     }
 
     @ViewBuilder
-    private func carouselSection(label: String, proxyName: String, startIndex: Int, anchorPrefix: String) -> some View {
+    private func carouselSection(label: String, proxy: Proxy, startIndex: Int, sectionKey: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label).font(.subheadline.bold()).foregroundColor(.secondary).padding(.horizontal, 16)
             ScrollViewReader { cp in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(0..<8) { i in
-                            CardView(index: startIndex + i).coachmarkAnchor("\(anchorPrefix)-card-\(i)")
+                            CardView(index: startIndex + i)
+                                .coachmarkAnchor(Anchor.card(section: sectionKey, index: i))
                         }
                     }.padding(.horizontal, 16)
                 }
-                .coachmarkScrollProxy(proxyName, proxy: cp, coordinator: coordinator)
+                .coachmarkScrollProxy(proxy.rawValue, proxy: cp, coordinator: coordinator)
             }
         }
     }
@@ -712,6 +872,58 @@ struct Test7_MultipleCarouselsLargeGaps: View {
 // MARK: - Test 8: Edge Cases
 
 struct Test8_EdgeCases: View {
+
+    enum Anchor: String {
+        case veryTop      = "t8-very-top"
+        case divider      = "t8-divider"
+        case massive      = "t8-massive"
+        case afterMassive = "t8-after-massive"
+        case veryBottom   = "t8-very-bottom"
+
+        static func bottomCard(_ index: Int) -> String { "t8-bottom-card-\(index)" }
+    }
+
+    enum Proxy: String {
+        case main
+        case bottomCarousel = "t8-bottomCarousel"
+    }
+
+    enum Step: CaseIterable {
+        case veryTop, divider, massive, afterMassive, bottomCard0, bottomCard9, veryBottom
+
+        var coachmarkItem: MDSCoachmarkItem {
+            let mainStep: [MDSCoachmarkScrollStep] = [.init(proxy: Proxy.main.rawValue)]
+            switch self {
+            case .veryTop:
+                return .init(id: Anchor.veryTop.rawValue, title: "Very Top",
+                             iconName: "arrow.up.to.line", iconColor: .blue)
+            case .divider:
+                return .init(id: Anchor.divider.rawValue, title: "Divider",
+                             description: "Zero-height edge case.",
+                             iconName: "minus", iconColor: .gray, scrollSteps: mainStep)
+            case .massive:
+                return .init(id: Anchor.massive.rawValue, title: "Massive Block",
+                             iconName: "square.fill", iconColor: .green, scrollSteps: mainStep)
+            case .afterMassive:
+                return .init(id: Anchor.afterMassive.rawValue, title: "After Massive",
+                             iconName: "flag.fill", iconColor: .red, scrollSteps: mainStep)
+            case .bottomCard0:
+                return .init(id: Anchor.bottomCard(0), title: "Bottom Card 0",
+                             iconName: "square.fill", iconColor: .orange,
+                             scrollSteps: mainStep + [.init(proxy: Proxy.bottomCarousel.rawValue)])
+            case .bottomCard9:
+                return .init(id: Anchor.bottomCard(9), title: "Bottom Card 9",
+                             iconName: "star.fill", iconColor: .yellow,
+                             scrollSteps: mainStep + [.init(proxy: Proxy.bottomCarousel.rawValue)])
+            case .veryBottom:
+                return .init(id: Anchor.veryBottom.rawValue, title: "Very Bottom",
+                             iconName: "trophy.fill", iconColor: .green, scrollSteps: mainStep)
+            }
+        }
+
+        static var allItems: [MDSCoachmarkItem] { allCases.map(\.coachmarkItem) }
+    }
+
     @StateObject var coordinator = MDSCoachmarkScrollCoordinator()
     @State var showTour = false
 
@@ -720,15 +932,20 @@ struct Test8_EdgeCases: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("⚡ Very Top").font(.title.bold())
-                        .padding(.horizontal, 16).padding(.top, 8).coachmarkAnchor("t8-very-top")
+                        .padding(.horizontal, 16).padding(.top, 8)
+                        .coachmarkAnchor(Anchor.veryTop.rawValue)
                     tourButton.padding(.horizontal, 16).padding(.top, 8)
-                    Divider().coachmarkAnchor("t8-divider")
-                    PlaceholderBlock(height: 100, color: .blue, label: "Small").padding(.horizontal, 16).padding(.top, 12)
+                    Divider().coachmarkAnchor(Anchor.divider.rawValue)
+                    PlaceholderBlock(height: 100, color: .blue, label: "Small")
+                        .padding(.horizontal, 16).padding(.top, 12)
                     PlaceholderBlock(height: 1200, color: .green, label: "Massive (1200pt)")
-                        .padding(.horizontal, 16).padding(.top, 12).coachmarkAnchor("t8-massive")
+                        .padding(.horizontal, 16).padding(.top, 12)
+                        .coachmarkAnchor(Anchor.massive.rawValue)
                     Text("🏁 After Massive").font(.headline)
-                        .padding(.horizontal, 16).padding(.top, 12).coachmarkAnchor("t8-after-massive")
-                    PlaceholderBlock(height: 800, color: .orange, label: "Another big").padding(.horizontal, 16).padding(.top, 12)
+                        .padding(.horizontal, 16).padding(.top, 12)
+                        .coachmarkAnchor(Anchor.afterMassive.rawValue)
+                    PlaceholderBlock(height: 800, color: .orange, label: "Another big")
+                        .padding(.horizontal, 16).padding(.top, 12)
 
                     Text("Bottom Carousel").font(.subheadline.bold()).foregroundColor(.secondary)
                         .padding(.horizontal, 16).padding(.top, 20)
@@ -736,40 +953,23 @@ struct Test8_EdgeCases: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
                                 ForEach(0..<10) { i in
-                                    CardView(index: i + 40).coachmarkAnchor("t8-bottom-card-\(i)")
+                                    CardView(index: i + 40).coachmarkAnchor(Anchor.bottomCard(i))
                                 }
                             }.padding(.horizontal, 16)
                         }
-                        .coachmarkScrollProxy("t8-bottomCarousel", proxy: bcp, coordinator: coordinator)
+                        .coachmarkScrollProxy(Proxy.bottomCarousel.rawValue, proxy: bcp, coordinator: coordinator)
                     }
                     .padding(.top, 8)
 
                     Text("🏆 The Very Last Item").font(.title2.bold()).foregroundColor(.green)
-                        .frame(maxWidth: .infinity).padding(.vertical, 40).coachmarkAnchor("t8-very-bottom")
+                        .frame(maxWidth: .infinity).padding(.vertical, 40)
+                        .coachmarkAnchor(Anchor.veryBottom.rawValue)
                 }
                 .padding(.bottom, 40)
             }
-            .coachmarkScrollProxy("main", proxy: proxy, coordinator: coordinator)
+            .coachmarkScrollProxy(Proxy.main.rawValue, proxy: proxy, coordinator: coordinator)
         }
-        .coachmarkOverlay(
-            isPresented: $showTour,
-            items: [
-                MDSCoachmarkItem(id: "t8-very-top", title: "Very Top", iconName: "arrow.up.to.line", iconColor: .blue),
-                MDSCoachmarkItem(id: "t8-divider", title: "Divider", description: "Zero-height edge case.", iconName: "minus", iconColor: .gray,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t8-massive", title: "Massive Block", iconName: "square.fill", iconColor: .green,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t8-after-massive", title: "After Massive", iconName: "flag.fill", iconColor: .red,
-                                 scrollSteps: [.init(proxy: "main")]),
-                MDSCoachmarkItem(id: "t8-bottom-card-0", title: "Bottom Card 0", iconName: "square.fill", iconColor: .orange,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "t8-bottomCarousel")]),
-                MDSCoachmarkItem(id: "t8-bottom-card-9", title: "Bottom Card 9", iconName: "star.fill", iconColor: .yellow,
-                                 scrollSteps: [.init(proxy: "main"), .init(proxy: "t8-bottomCarousel")]),
-                MDSCoachmarkItem(id: "t8-very-bottom", title: "Very Bottom", iconName: "trophy.fill", iconColor: .green,
-                                 scrollSteps: [.init(proxy: "main")])
-            ],
-            scrollCoordinator: coordinator
-        )
+        .coachmarkOverlay(isPresented: $showTour, items: Step.allItems, scrollCoordinator: coordinator)
         .navigationTitle("Test 8: Edge Cases")
         .toolbar { tourButton }
     }
