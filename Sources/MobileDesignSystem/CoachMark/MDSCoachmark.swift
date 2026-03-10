@@ -537,7 +537,7 @@ public struct MDSCoachmarkConfiguration {
     ///   - isBlocking: Whether the overlay blocks user interaction with underlying content.
     ///     Pass `false` to allow scrolling and tapping through the overlay.
     public init(
-        overlayColor: Color = Color.clear,
+        overlayColor: Color = Color.black.opacity(0.75),
         spotlightBorderColor: Color = .green,
         spotlightBorderWidth: CGFloat = 1,
         tooltipBorderColor: Color = .green,
