@@ -101,6 +101,7 @@ struct Test1_BasicVerticalScroll: View {
         }
         .coachmarkOverlay(
             isPresented: $showTour,
+            configuration: .init(isBlocking: true),
             items: [
                 MDSCoachmarkItem(id: "t1-welcome", title: "Welcome", description: "Top of page.", iconName: "hand.wave.fill", iconColor: .orange),
                 MDSCoachmarkItem(id: "t1-banner", title: "Banner", description: "Main banner.", iconName: "photo.fill", iconColor: .blue,
@@ -115,7 +116,7 @@ struct Test1_BasicVerticalScroll: View {
             scrollCoordinator: coordinator
         )
         .navigationTitle("Test 1: Basic Vertical")
-        .toolbar { tourButton }
+        
     }
 
     @ViewBuilder var tourButton: some View {
@@ -190,7 +191,7 @@ struct Test2_HorizontalCarousel: View {
             scrollCoordinator: coordinator
         )
         .navigationTitle("Test 2: Carousel")
-        .toolbar { tourButton }
+        
     }
 
     @ViewBuilder var tourButton: some View {
@@ -239,7 +240,7 @@ struct Test3_LazyVStack: View {
             scrollCoordinator: coordinator
         )
         .navigationTitle("Test 3: LazyVStack")
-        .toolbar { tourButton }
+        
     }
 
     @ViewBuilder var tourButton: some View {
@@ -386,7 +387,7 @@ struct Test4_LazyWithCarousels: View {
             scrollCoordinator: coordinator
         )
         .navigationTitle("Test 4: Lazy + Carousels")
-        .toolbar { tourButton }
+        
     }
 
     // ── Carousel section ──
@@ -525,7 +526,7 @@ struct Test5_DeepNesting: View {
             scrollCoordinator: coordinator
         )
         .navigationTitle("Test 5: Deep Nesting")
-        .toolbar { tourButton }
+        
     }
 
     @ViewBuilder var tourButton: some View {
@@ -625,7 +626,7 @@ struct Test6_PinnedHeaderLazy: View {
             scrollCoordinator: coordinator
         )
         .navigationTitle("Test 6: Pinned Header")
-        .toolbar { tourButton }
+        
     }
 
     @ViewBuilder var tourButton: some View {
@@ -682,7 +683,7 @@ struct Test7_MultipleCarouselsLargeGaps: View {
             scrollCoordinator: coordinator
         )
         .navigationTitle("Test 7: Multi Carousel")
-        .toolbar { tourButton }
+        
     }
 
     @ViewBuilder
@@ -771,7 +772,7 @@ struct Test8_EdgeCases: View {
             scrollCoordinator: coordinator
         )
         .navigationTitle("Test 8: Edge Cases")
-        .toolbar { tourButton }
+        
     }
 
     @ViewBuilder var tourButton: some View {

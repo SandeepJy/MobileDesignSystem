@@ -539,7 +539,7 @@ public struct MDSCoachmarkConfiguration {
     ///   - isBlocking: Whether the overlay blocks user interaction with underlying content.
     ///     Pass `false` to allow scrolling and tapping through the overlay.
     public init(
-        overlayColor: Color = Color.clear,
+        overlayColor: Color = Color.black.opacity(0.6),
         spotlightBorderColor: Color = .green,
         spotlightBorderWidth: CGFloat = 1,
         tooltipBorderColor: Color = .green,
@@ -866,6 +866,8 @@ private struct TipPositioningContainer<Content: View>: View {
 
 // MARK: - Internal: Coachmark Overlay View
 
+// MARK: - Internal: Coachmark Overlay View
+
 private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
     let wrappedContent: WrappedContent
     @Binding var isPresented: Bool
@@ -880,8 +882,37 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
     @State private var tipVisible: Bool = false
     @State private var visibilityCheckTask: Task<Void, Never>?
 
+    /// Drives VoiceOver focus onto the current tooltip's content.
+    ///
+    /// When the user taps Next/Previous, the existing tooltip is removed from
+    /// the hierarchy (`tipVisible = false`) and a new one is mounted after the
+    /// scroll settles. In that gap VoiceOver loses its focused element and —
+    /// without intervention — falls back to the first focusable thing on
+    /// screen, which is typically the navigation bar's Back button.
+    ///
+    /// This state is bound (via `contentAccessibilityFocus`) to the single
+    /// combined accessibility element inside `MDSCoachmarkTipContentView`.
+    /// Flipping it to `true` after the new tooltip renders pulls VoiceOver
+    /// straight onto the step's readable content.
+    ///
+    /// SwiftUI automatically resets this to `false` when the bound view leaves
+    /// the hierarchy, so each transition is a clean `false → true` edge.
+    @AccessibilityFocusState private var isTipFocused: Bool
+
     var body: some View {
         wrappedContent
+            // ── Accessibility focus trap (part 1 of 2) ───────────────────────
+            // Hide everything under the overlay from assistive tech for the
+            // duration of the tour. Without this, swiping past the last
+            // tooltip button — or the tooltip disappearing mid-transition —
+            // lets VoiceOver escape into the underlying screen and land on the
+            // nav bar.
+            //
+            // Must be applied *before* `.overlayPreferenceValue` so only the
+            // wrapped content is hidden; the overlay rendered by that modifier
+            // remains visible to VoiceOver. Anchor preferences propagate
+            // through this modifier unaffected (they're geometry, not a11y).
+            .accessibilityHidden(isPresented)
             .overlayPreferenceValue(MDSCoachmarkAnchorPreferenceKey.self) { anchors in
                 if isPresented, !items.isEmpty {
                     GeometryReader { geometry in
@@ -900,16 +931,17 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                         } ?? false
 
                         ZStack {
-                            // The dim + spotlight canvas. In non-blocking mode, hit-testing
-                            // is disabled so touches fall through to the content below.
                             overlayBackground(
                                 anchorRect: (tipVisible && visible) ? anchorRect : nil,
                                 safeAreaInsets: safeArea,
                                 in: geometry
                             )
+                            // The dim Canvas + spotlight ring are purely visual.
+                            // If left in the accessibility tree, VoiceOver treats
+                            // the Canvas as an opaque element and the swipe order
+                            // includes a dead stop with no label.
+                            .accessibilityHidden(true)
                             .onTapGesture {
-                                // Guard is redundant when isBlocking == false (allowsHitTesting
-                                // prevents this gesture from firing), but kept for clarity.
                                 guard configuration.isBlocking,
                                       configuration.dismissOnOverlayTap else { return }
                                 handleOverlayTap(at: safeIndex)
@@ -934,9 +966,26 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                                         CircularProgressViewStyle(tint: .white)
                                     )
                                     .scaleEffect(1.2)
-                                    // In non-blocking mode the spinner should not trap touches.
                                     .allowsHitTesting(configuration.isBlocking)
+                                    // Transitions are sub-second. Announcing the
+                                    // spinner would interrupt the next step's
+                                    // content announcement that follows it.
+                                    .accessibilityHidden(true)
                             }
+                        }
+                        // ── Accessibility focus trap (part 2 of 2) ───────────
+                        // `.isModal` tells VoiceOver to scope swipe navigation
+                        // and the rotor to this subtree. Together with
+                        // `.accessibilityHidden` on the wrapped content above,
+                        // this keeps focus inside the tooltip for the whole
+                        // tour — including the brief window during transitions
+                        // when nothing focusable exists yet.
+                        .accessibilityAddTraits(.isModal)
+                        // Standard two-finger scrub ("Z" gesture) to dismiss.
+                        // Routes through the same path as the Skip button so
+                        // per-item `onExit` and tour-level `onSkipped` both fire.
+                        .accessibilityAction(.escape) {
+                            handleSkip(at: safeIndex)
                         }
                         .ignoresSafeArea()
                         .onChange(of: tipVisible) { newValue in
@@ -962,6 +1011,29 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
             }
     }
 
+    // MARK: Accessibility Focus
+
+    /// Requests that VoiceOver move focus onto the newly visible tooltip.
+    ///
+    /// Called from `scrollToCurrentAnchor()` immediately after `tipVisible`
+    /// flips to `true`. The delay serves two purposes:
+    ///
+    /// 1. The tooltip's `.transition(.opacity.combined(with: .scale))` runs for
+    ///    0.25s. Requesting focus before the view is fully mounted can silently
+    ///    fail — the accessibility element doesn't exist yet.
+    /// 2. `.id(stepIndex)` on the tooltip forces a fresh view identity on each
+    ///    step. The `@AccessibilityFocusState` binding needs a tick to
+    ///    re-attach to the new element before the `true` write has an effect.
+    ///
+    /// When VoiceOver isn't running, setting the focus state is a no-op, so no
+    /// guard is needed.
+    private func moveAccessibilityFocusToTip() {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            isTipFocused = true
+        }
+    }
+
     // MARK: Visibility Failsafe
 
     private func scheduleVisibilityCheck(
@@ -981,7 +1053,6 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
             guard !Task.isCancelled else { return }
 
             let shouldDismiss: Bool
-
             if let rect = anchorRect {
                 shouldDismiss = isRectFullyOffscreen(rect, in: containerSize)
             } else {
@@ -1027,6 +1098,10 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
         let current = items[currentIndex]
         isScrolling = true
         tipVisible = false
+        // The bound view is about to leave the hierarchy, which resets this
+        // automatically, but being explicit keeps the state machine obvious
+        // and guarantees a clean false → true edge later.
+        isTipFocused = false
 
         if let coordinator = scrollCoordinator,
            coordinator.hasRegisteredProxies,
@@ -1055,6 +1130,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                         self.tipVisible = true
                     }
                     self.notifyAppear()
+                    self.moveAccessibilityFocusToTip()
                 }
             }
         } else {
@@ -1068,6 +1144,7 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                     self.tipVisible = true
                 }
                 self.notifyAppear()
+                self.moveAccessibilityFocusToTip()
             }
         }
     }
@@ -1081,17 +1158,6 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
 
     // MARK: Overlay Background
 
-    /// Builds the full-screen dim layer with an optional spotlight cutout.
-    ///
-    /// The overlay colour comes from ``MDSCoachmarkConfiguration/overlayColor``.
-    /// The spotlight border colour and width come from
-    /// ``MDSCoachmarkConfiguration/spotlightBorderColor`` and
-    /// ``MDSCoachmarkConfiguration/spotlightBorderWidth``.
-    ///
-    /// Hit-testing on the `Canvas` is controlled by ``MDSCoachmarkConfiguration/isBlocking``:
-    /// - `true`  → the canvas captures touches (blocking mode).
-    /// - `false` → the canvas ignores touches, passing them through to the content below
-    ///             so the user can scroll or interact freely (non-blocking mode).
     @ViewBuilder
     private func overlayBackground(
         anchorRect: CGRect?,
@@ -1121,10 +1187,6 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
             }
         }
         .compositingGroup()
-        // When non-blocking, disable hit-testing on the dim layer so touches reach
-        // the underlying content (e.g. scroll views, buttons). The tooltip, which is
-        // rendered in a separate ZStack layer above this canvas, is unaffected and
-        // remains fully interactive in both modes.
         .allowsHitTesting(configuration.isBlocking)
         .overlay {
             if let rect = anchorRect, configuration.spotlightBorderWidth > 0 {
@@ -1141,7 +1203,6 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                     )
                     .frame(width: spot.width, height: spot.height)
                     .position(x: spot.midX, y: spot.midY)
-                    // The border ring follows the same hit-testing rule as the canvas.
                     .allowsHitTesting(configuration.isBlocking)
             }
         }
@@ -1149,18 +1210,6 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
 
     // MARK: Tip Popover
 
-    /// Builds the positioned tooltip bubble for the current coachmark step.
-    ///
-    /// The tooltip is rendered as a single ``TooltipBubbleShape`` that combines the
-    /// rounded-rectangle body and the directional arrow into one continuous path.
-    /// This allows a stroke border (``MDSCoachmarkConfiguration/tooltipBorderColor``)
-    /// to trace the full perimeter — including the arrow sides — while deliberately
-    /// leaving the base of the arrow open where it meets the rectangle body, giving
-    /// the appearance of a seamless connection.
-    ///
-    /// The arrow height is injected as top or bottom padding on the content view so
-    /// that `TipPositioningContainer` sees the correct total height when measuring
-    /// the bubble for vertical placement.
     @ViewBuilder
     private func tipPopover(
         for item: MDSCoachmarkItem,
@@ -1202,18 +1251,18 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                 onBack: { goToPrevious() },
                 onNext: { goToNext() },
                 onSkip: { handleSkip(at: stepIndex) },
-                onFinish: { handleFinish() }
+                onFinish: { handleFinish() },
+                // Wire the overlay's focus state to the tooltip's content
+                // element. `moveAccessibilityFocusToTip()` writes `true` to
+                // this binding after the tooltip mounts.
+                contentAccessibilityFocus: $isTipFocused
             )
             .padding(.horizontal, MDSCoachmarkConstants.tipHorizontalPadding)
             .padding(.vertical, MDSCoachmarkConstants.tipVerticalPadding)
             .frame(maxWidth: MDSCoachmarkConstants.tipMaxWidth)
-            // Reserve space for the arrow so that the combined height is visible to
-            // TipPositioningContainer's GeometryReader for accurate Y placement.
             .padding(.top,    below ? arrowSize : 0)
             .padding(.bottom, below ? 0 : arrowSize)
             .background(
-                // Fill the combined bubble + arrow shape with the tooltip background
-                // colour and apply the drop shadow to the whole shape at once.
                 GeometryReader { geo in
                     let midX = resolvedArrowMidX(
                         for: item,
@@ -1236,9 +1285,6 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
                 }
             )
             .overlay(
-                // Stroke the same combined shape to produce the configurable border.
-                // The border hugs the arrow on both sides but is absent at the arrow
-                // base — the path simply does not include that segment.
                 Group {
                     if configuration.tooltipBorderWidth > 0 {
                         GeometryReader { geo in
@@ -1271,27 +1317,12 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
 
     // MARK: Arrow X Resolution
 
-    /// Computes the horizontal centre of the arrow in the tooltip's local coordinate space.
-    ///
-    /// The calculation mirrors the alignment logic that was previously inside
-    /// `ArrowPositioningView`, keeping the arrow visually anchored to the spotlight.
-    ///
-    /// - Parameters:
-    ///   - item: The coachmark item whose ``MDSCoachmarkItem/arrowAlignment`` and
-    ///     ``MDSCoachmarkItem/arrowOffset`` are applied.
-    ///   - containerWidth: The rendered width of the tooltip content area (from
-    ///     `GeometryReader`). This is the local space in which the arrow X is expressed.
-    ///   - screenWidth: The full screen width used to auto-resolve `.auto` alignment.
-    ///   - anchorRect: The adjusted anchor frame in screen coordinates, used when
-    ///     resolving `.auto` alignment by the anchor's horizontal midpoint.
-    /// - Returns: The arrow's horizontal centre in the tooltip's local coordinate space.
     private func resolvedArrowMidX(
         for item: MDSCoachmarkItem,
         containerWidth: CGFloat,
         screenWidth: CGFloat,
         anchorRect: CGRect
     ) -> CGFloat {
-        // Resolve .auto into a concrete alignment based on where the spotlight sits.
         let resolved: MDSCoachmarkArrowAlignment
         if item.arrowAlignment == .auto {
             let mid = anchorRect.midX
@@ -1395,7 +1426,6 @@ private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
         }
     }
 }
-
 // MARK: - Internal: Coachmark Overlay Modifier
 
 struct MDSCoachmarkOverlayModifier: ViewModifier {

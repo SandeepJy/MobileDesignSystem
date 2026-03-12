@@ -330,13 +330,7 @@ struct CoachmarkExamplesView: View {
     
     private var scrollConfiguration: MDSCoachmarkConfiguration {
         var config = MDSCoachmarkConfiguration()
-        config.accentColor = .teal
-        config.defaultIconColor = .teal
-        config.spotlightBorderColor = .teal
-        config.spotlightBorderWidth = 2
-        config.spotlightPadding = 6
-        config.scrollAnchor = .center
-        config.scrollSettleDelay = 0.5
+       
         return config
     }
     
@@ -377,18 +371,7 @@ struct CoachmarkExamplesView: View {
     
     private var customConfiguration: MDSCoachmarkConfiguration {
         var config = MDSCoachmarkConfiguration()
-        config.accentColor = .purple
-        config.defaultIconColor = .purple
-        config.overlayColor = Color.purple.opacity(0.4)
-        config.exitButtonLabel = "Skip All"
-        config.nextButtonLabel = "Continue"
-        config.finishButtonLabel = "Got It!"
-        config.backButtonLabel = "Prev"
-        config.spotlightBorderColor = .purple
-        config.spotlightBorderWidth = 2
-        config.spotlightCornerRadius = 12
-        config.spotlightPadding = 8
-        config.tipLayoutStyle = .vertical
+        
         return config
     }
     
@@ -420,14 +403,7 @@ struct CoachmarkExamplesView: View {
     
     private var mandatoryConfiguration: MDSCoachmarkConfiguration {
         var config = MDSCoachmarkConfiguration()
-        config.showExitButton = false
-        config.showBackButton = false
-        config.accentColor = .green
-        config.defaultIconColor = .green
-        config.nextButtonLabel = "Next →"
-        config.finishButtonLabel = "All Done!"
-        config.overlayColor = Color.black.opacity(0.6)
-        config.spotlightPadding = 6
+       
         return config
     }
     

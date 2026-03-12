@@ -1,0 +1,1222 @@
+Accessibility Fixes for Coachmark Focus Management
+The root cause: when the tooltip is torn down and rebuilt (during Next/Previous), VoiceOver loses its focused element and falls back to the first thing it finds — the nav bar's Back button. Three things are needed:
+
+Trap focus inside the overlay (.isModal + hide the underlying content)
+Programmatically move focus to the new tooltip after navigation (@AccessibilityFocusState)
+Give the tooltip a single, well‑labeled focus target so VO reads something meaningful when it lands there
+File 1: MDSCoachMarkTipContentView.swift (full replacement)
+swift
+import SwiftUI
+
+struct MDSCoachmarkTipContentView: View {
+    let item: MDSCoachmarkItem
+    let stepIndex: Int
+    let totalSteps: Int
+    let isFirst: Bool
+    let isLast: Bool
+    let configuration: MDSCoachmarkConfiguration
+    let onBack: () -> Void
+    let onNext: () -> Void
+    let onSkip: () -> Void
+    let onFinish: () -> Void
+
+    /// Binding the overlay uses to pull VoiceOver focus onto this tooltip's
+    /// content section after a Next/Previous transition. The overlay owns the
+    /// `@AccessibilityFocusState` and flips it to `true` once the new tooltip
+    /// has been mounted; this binding ties that state to the correct leaf
+    /// element so VoiceOver lands directly on the readable content rather than
+    /// hunting through the view tree.
+    var contentAccessibilityFocus: AccessibilityFocusState<Bool>.Binding
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            contentLayout
+                // Collapse icon + title + description into a single accessibility
+                // element. Without this, VoiceOver reads each piece separately
+                // and the focus request from the overlay could land on the icon
+                // (which has no useful label) instead of the text.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(contentAccessibilityLabel)
+                // Read the content before the navigation bar when swiping.
+                .accessibilitySortPriority(10)
+                // This is the element the overlay drives focus to.
+                .accessibilityFocused(contentAccessibilityFocus)
+            Divider()
+                .accessibilityHidden(true) // Purely decorative.
+            navigationBar
+        }
+    }
+
+    // MARK: - Accessibility
+
+    /// The spoken description of this step. Leads with the step position so the
+    /// user immediately knows where they are in the tour, then the title, then
+    /// the optional description — mirroring how a sighted user scans the tip.
+    ///
+    /// The visual "N of M" indicator in the navigation bar is hidden from
+    /// VoiceOver to avoid announcing the same information twice.
+    private var contentAccessibilityLabel: String {
+        var parts: [String] = ["Step \(stepIndex + 1) of \(totalSteps)", item.title]
+        if let desc = item.description, !desc.isEmpty {
+            parts.append(desc)
+        }
+        return parts.joined(separator: ". ")
+    }
+
+    // MARK: - Layout
+
+    @ViewBuilder
+    private var contentLayout: some View {
+        switch MDSCoachmarkConstants.tipLayoutStyle {
+        case .horizontal: horizontalLayout
+        case .vertical:   verticalLayout
+        case .textOnly:   textOnlyLayout
+        }
+    }
+
+    @ViewBuilder
+    private var horizontalLayout: some View {
+        HStack(alignment: .top, spacing: 12) {
+            if let iconName = item.iconName { iconView(systemName: iconName) }
+            textContent
+        }
+    }
+
+    @ViewBuilder
+    private var verticalLayout: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let iconName = item.iconName { iconView(systemName: iconName) }
+            textContent
+        }
+    }
+
+    @ViewBuilder
+    private var textOnlyLayout: some View { textContent }
+
+    @ViewBuilder
+    private var textContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(item.title)
+                .font(MDSCoachmarkConstants.titleFont)
+                .foregroundColor(MDSCoachmarkConstants.titleColor)
+                .fixedSize(horizontal: false, vertical: true)
+            if let desc = item.description, !desc.isEmpty {
+                Text(desc)
+                    .font(MDSCoachmarkConstants.descriptionFont)
+                    .foregroundColor(MDSCoachmarkConstants.descriptionColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func iconView(systemName: String) -> some View {
+        let color = item.iconColor ?? MDSCoachmarkConstants.defaultIconColor
+        Image(systemName: systemName)
+            .font(.system(size: MDSCoachmarkConstants.defaultIconSize))
+            .foregroundColor(color)
+            .frame(
+                width: MDSCoachmarkConstants.defaultIconSize + 8,
+                height: MDSCoachmarkConstants.defaultIconSize + 8
+            )
+            // The icon is decorative — the content label already conveys the
+            // meaning. Without this, VoiceOver reads the SF Symbol name
+            // ("gear", "star.fill", etc.) which is noise.
+            .accessibilityHidden(true)
+    }
+
+    // MARK: - Navigation Bar
+
+    @ViewBuilder
+    private var navigationBar: some View {
+        HStack {
+            Text("\(stepIndex + 1) of \(totalSteps)")
+                .font(MDSCoachmarkConstants.stepIndicatorFont)
+                .foregroundColor(MDSCoachmarkConstants.stepIndicatorColor)
+                // Step position is already announced as the first part of
+                // `contentAccessibilityLabel`. Hiding this avoids a duplicate
+                // "1 of 5" announcement when the user swipes past the content.
+                .accessibilityHidden(true)
+
+            Spacer()
+
+            if configuration.showExitButton && !isLast {
+                Button(action: onSkip) {
+                    Text(MDSCoachmarkConstants.exitButtonLabel)
+                        .font(.subheadline)
+                        .foregroundColor(MDSCoachmarkConstants.stepIndicatorColor)
+                }
+                .accessibilityLabel(MDSCoachmarkConstants.exitButtonLabel)
+                .accessibilityHint("Exits the tour")
+                .padding(.trailing, 8)
+            }
+
+            if MDSCoachmarkConstants.showBackButton && !isFirst {
+                Button(action: onBack) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left").font(.caption.bold())
+                        Text(MDSCoachmarkConstants.backButtonLabel)
+                            .font(.subheadline.bold())
+                    }
+                    .foregroundColor(MDSCoachmarkConstants.accentColor)
+                }
+                // "Previous step" disambiguates this button from the navigation
+                // bar's own Back button — the very element we're trying to stop
+                // VoiceOver from jumping to.
+                .accessibilityLabel("Previous step")
+                .accessibilityHint("Goes to step \(stepIndex) of \(totalSteps)")
+                .padding(.trailing, 4)
+            }
+
+            Button(action: isLast ? onFinish : onNext) {
+                HStack(spacing: 4) {
+                    Text(
+                        isLast
+                            ? MDSCoachmarkConstants.finishButtonLabel
+                            : MDSCoachmarkConstants.nextButtonLabel
+                    )
+                    .font(.subheadline.bold())
+                    if !isLast {
+                        Image(systemName: "chevron.right").font(.caption.bold())
+                    }
+                }
+                .foregroundColor(isLast ? .white : MDSCoachmarkConstants.accentColor)
+                .padding(.horizontal, isLast ? 16 : 0)
+                .padding(.vertical, isLast ? 6 : 0)
+                .background(
+                    Group {
+                        if isLast {
+                            Capsule().fill(MDSCoachmarkConstants.accentColor)
+                        }
+                    }
+                )
+            }
+            .accessibilityLabel(
+                isLast
+                    ? MDSCoachmarkConstants.finishButtonLabel
+                    : "Next step"
+            )
+            .accessibilityHint(
+                isLast
+                    ? "Completes the tour"
+                    : "Goes to step \(stepIndex + 2) of \(totalSteps)"
+            )
+        }
+    }
+}
+File 2: MDSCoachmark.swift — changes to MDSCoachmarkOverlayView
+Only the overlay view changes. Replace the private struct with this:
+
+swift
+// MARK: - Internal: Coachmark Overlay View
+
+private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
+    let wrappedContent: WrappedContent
+    @Binding var isPresented: Bool
+    let items: [MDSCoachmarkItem]
+    let configuration: MDSCoachmarkConfiguration
+    let onFinished: (() -> Void)?
+    let onSkipped: ((Int) -> Void)?
+    let scrollCoordinator: MDSCoachmarkScrollCoordinator?
+
+    @State private var currentIndex: Int = 0
+    @State private var isScrolling: Bool = false
+    @State private var tipVisible: Bool = false
+    @State private var visibilityCheckTask: Task<Void, Never>?
+
+    /// Drives VoiceOver focus onto the current tooltip's content.
+    ///
+    /// When the user taps Next/Previous, the existing tooltip is removed from
+    /// the hierarchy (`tipVisible = false`) and a new one is mounted after the
+    /// scroll settles. In that gap VoiceOver loses its focused element and —
+    /// without intervention — falls back to the first focusable thing on
+    /// screen, which is typically the navigation bar's Back button.
+    ///
+    /// This state is bound (via `contentAccessibilityFocus`) to the single
+    /// combined accessibility element inside `MDSCoachmarkTipContentView`.
+    /// Flipping it to `true` after the new tooltip renders pulls VoiceOver
+    /// straight onto the step's readable content.
+    ///
+    /// SwiftUI automatically resets this to `false` when the bound view leaves
+    /// the hierarchy, so each transition is a clean `false → true` edge.
+    @AccessibilityFocusState private var isTipFocused: Bool
+
+    var body: some View {
+        wrappedContent
+            // ── Accessibility focus trap (part 1 of 2) ───────────────────────
+            // Hide everything under the overlay from assistive tech for the
+            // duration of the tour. Without this, swiping past the last
+            // tooltip button — or the tooltip disappearing mid-transition —
+            // lets VoiceOver escape into the underlying screen and land on the
+            // nav bar.
+            //
+            // Must be applied *before* `.overlayPreferenceValue` so only the
+            // wrapped content is hidden; the overlay rendered by that modifier
+            // remains visible to VoiceOver. Anchor preferences propagate
+            // through this modifier unaffected (they're geometry, not a11y).
+            .accessibilityHidden(isPresented)
+            .overlayPreferenceValue(MDSCoachmarkAnchorPreferenceKey.self) { anchors in
+                if isPresented, !items.isEmpty {
+                    GeometryReader { geometry in
+                        let safeArea = geometry.safeAreaInsets
+                        let safeIndex = min(currentIndex, items.count - 1)
+                        let current = items[safeIndex]
+                        let anchorRect: CGRect? = anchors[current.id].map {
+                            geometry[$0]
+                        }
+                        let visible = anchorRect.map {
+                            isRectVisible(
+                                $0,
+                                in: geometry.size,
+                                threshold: MDSCoachmarkConstants.visibilityThreshold
+                            )
+                        } ?? false
+
+                        ZStack {
+                            overlayBackground(
+                                anchorRect: (tipVisible && visible) ? anchorRect : nil,
+                                safeAreaInsets: safeArea,
+                                in: geometry
+                            )
+                            // The dim Canvas + spotlight ring are purely visual.
+                            // If left in the accessibility tree, VoiceOver treats
+                            // the Canvas as an opaque element and the swipe order
+                            // includes a dead stop with no label.
+                            .accessibilityHidden(true)
+                            .onTapGesture {
+                                guard configuration.isBlocking,
+                                      configuration.dismissOnOverlayTap else { return }
+                                handleOverlayTap(at: safeIndex)
+                            }
+
+                            if tipVisible, let rect = anchorRect, visible {
+                                tipPopover(
+                                    for: current,
+                                    anchorRect: rect,
+                                    safeAreaInsets: safeArea,
+                                    geometry: geometry,
+                                    stepIndex: safeIndex
+                                )
+                                .transition(
+                                    .opacity.combined(with: .scale(scale: 0.95))
+                                )
+                            }
+
+                            if isScrolling {
+                                ProgressView()
+                                    .progressViewStyle(
+                                        CircularProgressViewStyle(tint: .white)
+                                    )
+                                    .scaleEffect(1.2)
+                                    .allowsHitTesting(configuration.isBlocking)
+                                    // Transitions are sub-second. Announcing the
+                                    // spinner would interrupt the next step's
+                                    // content announcement that follows it.
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        // ── Accessibility focus trap (part 2 of 2) ───────────
+                        // `.isModal` tells VoiceOver to scope swipe navigation
+                        // and the rotor to this subtree. Together with
+                        // `.accessibilityHidden` on the wrapped content above,
+                        // this keeps focus inside the tooltip for the whole
+                        // tour — including the brief window during transitions
+                        // when nothing focusable exists yet.
+                        .accessibilityAddTraits(.isModal)
+                        // Standard two-finger scrub ("Z" gesture) to dismiss.
+                        // Routes through the same path as the Skip button so
+                        // per-item `onExit` and tour-level `onSkipped` both fire.
+                        .accessibilityAction(.escape) {
+                            handleSkip(at: safeIndex)
+                        }
+                        .ignoresSafeArea()
+                        .onChange(of: tipVisible) { newValue in
+                            if newValue && configuration.dismissWhenOffscreen {
+                                scheduleVisibilityCheck(
+                                    anchorRect: anchorRect,
+                                    containerSize: geometry.size,
+                                    stepIndex: safeIndex
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            .onChange(of: isPresented) { newValue in
+                if newValue {
+                    currentIndex = 0
+                    scrollToCurrentAnchor()
+                } else {
+                    cancelVisibilityCheck()
+                    tipVisible = false
+                }
+            }
+    }
+
+    // MARK: Accessibility Focus
+
+    /// Requests that VoiceOver move focus onto the newly visible tooltip.
+    ///
+    /// Called from `scrollToCurrentAnchor()` immediately after `tipVisible`
+    /// flips to `true`. The delay serves two purposes:
+    ///
+    /// 1. The tooltip's `.transition(.opacity.combined(with: .scale))` runs for
+    ///    0.25s. Requesting focus before the view is fully mounted can silently
+    ///    fail — the accessibility element doesn't exist yet.
+    /// 2. `.id(stepIndex)` on the tooltip forces a fresh view identity on each
+    ///    step. The `@AccessibilityFocusState` binding needs a tick to
+    ///    re-attach to the new element before the `true` write has an effect.
+    ///
+    /// When VoiceOver isn't running, setting the focus state is a no-op, so no
+    /// guard is needed.
+    private func moveAccessibilityFocusToTip() {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            isTipFocused = true
+        }
+    }
+
+    // MARK: Visibility Failsafe
+
+    private func scheduleVisibilityCheck(
+        anchorRect: CGRect?,
+        containerSize: CGSize,
+        stepIndex: Int
+    ) {
+        cancelVisibilityCheck()
+
+        visibilityCheckTask = Task {
+            try? await Task.sleep(
+                nanoseconds: UInt64(
+                    MDSCoachmarkConstants.visibilityCheckDelay * 1_000_000_000
+                )
+            )
+
+            guard !Task.isCancelled else { return }
+
+            let shouldDismiss: Bool
+            if let rect = anchorRect {
+                shouldDismiss = isRectFullyOffscreen(rect, in: containerSize)
+            } else {
+                shouldDismiss = true
+            }
+
+            if shouldDismiss {
+                await MainActor.run {
+                    dismissDueToFailsafe(stepIndex: stepIndex)
+                }
+            }
+        }
+    }
+
+    private func cancelVisibilityCheck() {
+        visibilityCheckTask?.cancel()
+        visibilityCheckTask = nil
+    }
+
+    private func dismissDueToFailsafe(stepIndex: Int) {
+        guard stepIndex < items.count else { return }
+        items[stepIndex].onExitAction?(stepIndex)
+        dismiss()
+        onSkipped?(stepIndex)
+    }
+
+    // MARK: Overlay Tap
+
+    private func handleOverlayTap(at stepIndex: Int) {
+        guard stepIndex < items.count else { return }
+        items[stepIndex].onExitAction?(stepIndex)
+        dismiss()
+        onSkipped?(stepIndex)
+    }
+
+    // MARK: Scrolling
+
+    private func scrollToCurrentAnchor() {
+        guard currentIndex < items.count else { return }
+
+        cancelVisibilityCheck()
+
+        let current = items[currentIndex]
+        isScrolling = true
+        tipVisible = false
+        // The bound view is about to leave the hierarchy, which resets this
+        // automatically, but being explicit keeps the state machine obvious
+        // and guarantees a clean false → true edge later.
+        isTipFocused = false
+
+        if let coordinator = scrollCoordinator,
+           coordinator.hasRegisteredProxies,
+           let steps = current.scrollSteps,
+           !steps.isEmpty
+        {
+            coordinator.scrollSequentially(
+                targetID: current.id,
+                steps: steps,
+                anchor: MDSCoachmarkConstants.scrollAnchor,
+                animated: MDSCoachmarkConstants.animateTransitions,
+                interStepDelay: configuration.scrollInterStepDelay,
+                proxyWaitTimeout: configuration.proxyWaitTimeout
+            ) {
+                Task {
+                    try? await Task.sleep(
+                        nanoseconds: UInt64(
+                            configuration.scrollSettleDelay * 1_000_000_000
+                        )
+                    )
+                    self.isScrolling = false
+                    withAnimation(
+                        MDSCoachmarkConstants.animateTransitions
+                            ? .easeInOut(duration: 0.25) : nil
+                    ) {
+                        self.tipVisible = true
+                    }
+                    self.notifyAppear()
+                    self.moveAccessibilityFocusToTip()
+                }
+            }
+        } else {
+            Task {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                self.isScrolling = false
+                withAnimation(
+                    MDSCoachmarkConstants.animateTransitions
+                        ? .easeInOut(duration: 0.25) : nil
+                ) {
+                    self.tipVisible = true
+                }
+                self.notifyAppear()
+                self.moveAccessibilityFocusToTip()
+            }
+        }
+    }
+
+    // MARK: Callbacks
+
+    private func notifyAppear() {
+        guard currentIndex < items.count else { return }
+        items[currentIndex].onAppearAction?(currentIndex)
+    }
+
+    // MARK: Overlay Background
+
+    @ViewBuilder
+    private func overlayBackground(
+        anchorRect: CGRect?,
+        safeAreaInsets: EdgeInsets,
+        in geometry: GeometryProxy
+    ) -> some View {
+        let pad    = MDSCoachmarkConstants.spotlightPadding
+        let radius = MDSCoachmarkConstants.spotlightCornerRadius
+
+        Canvas { ctx, size in
+            ctx.fill(
+                Path(CGRect(origin: .zero, size: size)),
+                with: .color(configuration.overlayColor)
+            )
+            if let rect = anchorRect {
+                let adj = CGRect(
+                    x: rect.origin.x + safeAreaInsets.leading,
+                    y: rect.origin.y + safeAreaInsets.top,
+                    width: rect.width, height: rect.height
+                )
+                let spot = adj.insetBy(dx: -pad, dy: -pad)
+                ctx.blendMode = .destinationOut
+                ctx.fill(
+                    Path(roundedRect: spot, cornerRadius: radius),
+                    with: .color(.white)
+                )
+            }
+        }
+        .compositingGroup()
+        .allowsHitTesting(configuration.isBlocking)
+        .overlay {
+            if let rect = anchorRect, configuration.spotlightBorderWidth > 0 {
+                let adj = CGRect(
+                    x: rect.origin.x + safeAreaInsets.leading,
+                    y: rect.origin.y + safeAreaInsets.top,
+                    width: rect.width, height: rect.height
+                )
+                let spot = adj.insetBy(dx: -pad, dy: -pad)
+                RoundedRectangle(cornerRadius: radius)
+                    .stroke(
+                        configuration.spotlightBorderColor,
+                        lineWidth: configuration.spotlightBorderWidth
+                    )
+                    .frame(width: spot.width, height: spot.height)
+                    .position(x: spot.midX, y: spot.midY)
+                    .allowsHitTesting(configuration.isBlocking)
+            }
+        }
+    }
+
+    // MARK: Tip Popover
+
+    @ViewBuilder
+    private func tipPopover(
+        for item: MDSCoachmarkItem,
+        anchorRect: CGRect,
+        safeAreaInsets: EdgeInsets,
+        geometry: GeometryProxy,
+        stepIndex: Int
+    ) -> some View {
+        let adj = CGRect(
+            x: anchorRect.origin.x + safeAreaInsets.leading,
+            y: anchorRect.origin.y + safeAreaInsets.top,
+            width: anchorRect.width, height: anchorRect.height
+        )
+        let fullH = geometry.size.height + safeAreaInsets.top + safeAreaInsets.bottom
+        let fullW = geometry.size.width  + safeAreaInsets.leading + safeAreaInsets.trailing
+        let below = shouldShowBelow(
+            anchorRect: adj,
+            screenHeight: fullH,
+            safeAreaInsets: safeAreaInsets
+        )
+        let arrowSize = MDSCoachmarkConstants.arrowSize
+
+        TipPositioningContainer(
+            anchorRect: adj,
+            showBelow: below,
+            spotlightPadding: MDSCoachmarkConstants.spotlightPadding,
+            screenSize: CGSize(width: fullW, height: fullH),
+            safeAreaInsets: safeAreaInsets,
+            safeAreaMargin: MDSCoachmarkConstants.tipSafeAreaMargin,
+            tipCornerRadius: configuration.tipCornerRadius
+        ) {
+            MDSCoachmarkTipContentView(
+                item: item,
+                stepIndex: stepIndex,
+                totalSteps: items.count,
+                isFirst: stepIndex == 0,
+                isLast: stepIndex == items.count - 1,
+                configuration: configuration,
+                onBack: { goToPrevious() },
+                onNext: { goToNext() },
+                onSkip: { handleSkip(at: stepIndex) },
+                onFinish: { handleFinish() },
+                // Wire the overlay's focus state to the tooltip's content
+                // element. `moveAccessibilityFocusToTip()` writes `true` to
+                // this binding after the tooltip mounts.
+                contentAccessibilityFocus: $isTipFocused
+            )
+            .padding(.horizontal, MDSCoachmarkConstants.tipHorizontalPadding)
+            .padding(.vertical, MDSCoachmarkConstants.tipVerticalPadding)
+            .frame(maxWidth: MDSCoachmarkConstants.tipMaxWidth)
+            .padding(.top,    below ? arrowSize : 0)
+            .padding(.bottom, below ? 0 : arrowSize)
+            .background(
+                GeometryReader { geo in
+                    let midX = resolvedArrowMidX(
+                        for: item,
+                        containerWidth: geo.size.width,
+                        screenWidth: fullW,
+                        anchorRect: adj
+                    )
+                    TooltipBubbleShape(
+                        arrowPointingUp: below,
+                        arrowMidX: midX,
+                        arrowWidth: arrowSize * 2,
+                        arrowHeight: arrowSize,
+                        cornerRadius: configuration.tipCornerRadius
+                    )
+                    .fill(MDSCoachmarkConstants.tipBackgroundColor)
+                    .shadow(
+                        color: Color.black.opacity(0.15),
+                        radius: MDSCoachmarkConstants.tipShadowRadius, x: 0, y: 2
+                    )
+                }
+            )
+            .overlay(
+                Group {
+                    if configuration.tooltipBorderWidth > 0 {
+                        GeometryReader { geo in
+                            let midX = resolvedArrowMidX(
+                                for: item,
+                                containerWidth: geo.size.width,
+                                screenWidth: fullW,
+                                anchorRect: adj
+                            )
+                            TooltipBubbleShape(
+                                arrowPointingUp: below,
+                                arrowMidX: midX,
+                                arrowWidth: arrowSize * 2,
+                                arrowHeight: arrowSize,
+                                cornerRadius: configuration.tipCornerRadius
+                            )
+                            .stroke(
+                                configuration.tooltipBorderColor,
+                                lineWidth: configuration.tooltipBorderWidth
+                            )
+                        }
+                    }
+                }
+            )
+            .padding(.horizontal, 16)
+        }
+        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+        .id(stepIndex)
+    }
+
+    // MARK: Arrow X Resolution
+
+    private func resolvedArrowMidX(
+        for item: MDSCoachmarkItem,
+        containerWidth: CGFloat,
+        screenWidth: CGFloat,
+        anchorRect: CGRect
+    ) -> CGFloat {
+        let resolved: MDSCoachmarkArrowAlignment
+        if item.arrowAlignment == .auto {
+            let mid = anchorRect.midX
+            if mid < screenWidth * 0.3      { resolved = .leading }
+            else if mid > screenWidth * 0.7 { resolved = .trailing }
+            else                             { resolved = .center }
+        } else {
+            resolved = item.arrowAlignment
+        }
+
+        let base: CGFloat
+        switch resolved {
+        case .leading:
+            base = MDSCoachmarkConstants.arrowHorizontalPadding
+        case .trailing:
+            base = containerWidth - MDSCoachmarkConstants.arrowHorizontalPadding
+        case .center, .auto:
+            base = containerWidth / 2
+        }
+
+        return base + item.arrowOffset
+    }
+
+    // MARK: Arrow Direction
+
+    private func shouldShowBelow(
+        anchorRect: CGRect,
+        screenHeight: CGFloat,
+        safeAreaInsets: EdgeInsets
+    ) -> Bool {
+        switch MDSCoachmarkConstants.arrowDirection {
+        case .top:    return false
+        case .bottom: return true
+        case .automatic:
+            let above = anchorRect.minY - MDSCoachmarkConstants.spotlightPadding
+                - safeAreaInsets.top
+            let below = screenHeight - anchorRect.maxY
+                - MDSCoachmarkConstants.spotlightPadding - safeAreaInsets.bottom
+            let min: CGFloat = 120
+            if below >= min { return true }
+            if above >= min { return false }
+            return below >= above
+        }
+    }
+
+    // MARK: Navigation
+
+    private func goToNext() {
+        let index = currentIndex
+        guard index < items.count else { return }
+        items[index].onNextAction?(index)
+
+        let next = min(index + 1, items.count - 1)
+        if MDSCoachmarkConstants.animateTransitions {
+            withAnimation(.easeInOut(duration: 0.3)) { currentIndex = next }
+        } else {
+            currentIndex = next
+        }
+        scrollToCurrentAnchor()
+    }
+
+    private func goToPrevious() {
+        let index = currentIndex
+        guard index < items.count else { return }
+        items[index].onPreviousAction?(index)
+
+        let prev = max(index - 1, 0)
+        if MDSCoachmarkConstants.animateTransitions {
+            withAnimation(.easeInOut(duration: 0.3)) { currentIndex = prev }
+        } else {
+            currentIndex = prev
+        }
+        scrollToCurrentAnchor()
+    }
+
+    private func handleSkip(at stepIndex: Int) {
+        guard stepIndex < items.count else { return }
+        items[stepIndex].onExitAction?(stepIndex)
+        dismiss()
+        onSkipped?(stepIndex)
+    }
+
+    private func handleFinish() {
+        dismiss()
+        onFinished?()
+    }
+
+    private func dismiss() {
+        cancelVisibilityCheck()
+
+        if MDSCoachmarkConstants.animateTransitions {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isPresented = false
+                tipVisible = false
+                currentIndex = 0
+            }
+        } else {
+            isPresented = false
+            tipVisible = false
+            currentIndex = 0
+        }
+    }
+}
+Summary of what each fix does
+Change	Fixes
+.accessibilityHidden(isPresented) on wrappedContent	Removes the nav bar (and everything else under the overlay) from VoiceOver's swipe order while the tour is active
+.accessibilityAddTraits(.isModal) on the overlay ZStack	Scopes the VoiceOver rotor and swipe navigation to the tooltip subtree
+@AccessibilityFocusState + moveAccessibilityFocusToTip()	Pulls focus onto the new tooltip after Next/Previous instead of letting VO pick
+.accessibilityElement(children: .ignore) + custom label on content	Gives focus a single meaningful landing spot that reads "Step N of M. Title. Description."
+.accessibilityHidden(true) on Canvas/spinner/divider/icon/step-indicator	Removes decorative noise from the swipe order
+.accessibilityAction(.escape)	Standard two‑finger scrub to dismiss
+"Previous step" / "Next step" labels	Disambiguates from the nav bar's Back button
+
+
+
+
+
+----------------A--------------------
+
+VoiceOver Focus Fix for Coachmark Navigation
+Root Cause
+When tapping Next/Back, the flow is:
+
+goToNext() → scrollToCurrentAnchor() → tipVisible = false
+The tip view is removed from the hierarchy (if tipVisible …)
+VoiceOver loses its focused element and falls back to the first focusable thing on screen → the nav bar's Back button
+After scrolling, tipVisible = true → new tip renders with a new .id(stepIndex)
+Nothing tells VoiceOver to go to the new tip
+Two problems compound each other:
+
+The overlay isn't modal for accessibility, so VoiceOver can escape to the nav bar.
+There's no programmatic focus management to direct VoiceOver to the new tip.
+Fix Strategy
+#	Change	Why
+1	@AccessibilityFocusState + set it in notifyAppear()	Explicitly moves VoiceOver to the new tip
+2	.accessibilityAddTraits(.isModal) on the overlay ZStack	Traps VoiceOver inside the overlay
+3	.accessibilityHidden(isPresented) on wrappedContent	Belt-and-suspenders — hides nav bar siblings
+4	Hide decorative elements (dim layer, icon, chevrons)	Prevents VoiceOver landing on unlabeled noise
+5	Combine title + description into one element	First announcement is informative
+Changes to MDSCoachmark.swift
+① Add the focus state to MDSCoachmarkOverlayView
+swift
+private struct MDSCoachmarkOverlayView<WrappedContent: View>: View {
+    let wrappedContent: WrappedContent
+    @Binding var isPresented: Bool
+    let items: [MDSCoachmarkItem]
+    let configuration: MDSCoachmarkConfiguration
+    let onFinished: (() -> Void)?
+    let onSkipped: ((Int) -> Void)?
+    let scrollCoordinator: MDSCoachmarkScrollCoordinator?
+
+    @State private var currentIndex: Int = 0
+    @State private var isScrolling: Bool = false
+    @State private var tipVisible: Bool = false
+    @State private var visibilityCheckTask: Task<Void, Never>?
+
+    /// Tracks VoiceOver focus on the tip content.
+    ///
+    /// When advancing between steps the tip view is briefly removed from the
+    /// hierarchy (`tipVisible = false`) and then re-inserted with a new
+    /// `.id(stepIndex)`. During that gap VoiceOver loses its focused element
+    /// and — without intervention — falls back to the nav bar's Back button.
+    /// Setting this to `true` in `notifyAppear()` pulls focus back to the tip.
+    @AccessibilityFocusState private var isTipFocused: Bool
+② Update body — hide content, mark overlay modal, hide dim layer
+swift
+var body: some View {
+    wrappedContent
+        // Hide underlying content (including any nav-bar siblings reachable
+        // from here) from VoiceOver while the tour is running. Combined with
+        // `.isModal` on the overlay below, this keeps focus from escaping to
+        // the nav bar's Back button between steps.
+        .accessibilityHidden(isPresented)
+        .overlayPreferenceValue(MDSCoachmarkAnchorPreferenceKey.self) { anchors in
+            if isPresented, !items.isEmpty {
+                GeometryReader { geometry in
+                    let safeArea = geometry.safeAreaInsets
+                    let safeIndex = min(currentIndex, items.count - 1)
+                    let current = items[safeIndex]
+                    let anchorRect: CGRect? = anchors[current.id].map {
+                        geometry[$0]
+                    }
+                    let visible = anchorRect.map {
+                        isRectVisible(
+                            $0,
+                            in: geometry.size,
+                            threshold: MDSCoachmarkConstants.visibilityThreshold
+                        )
+                    } ?? false
+
+                    ZStack {
+                        overlayBackground(
+                            anchorRect: (tipVisible && visible) ? anchorRect : nil,
+                            safeAreaInsets: safeArea,
+                            in: geometry
+                        )
+                        // The dim canvas and spotlight ring are purely
+                        // decorative — hide them so VoiceOver doesn't land on
+                        // an unlabeled element while hunting for the tip.
+                        .accessibilityHidden(true)
+                        .onTapGesture {
+                            guard configuration.isBlocking,
+                                  configuration.dismissOnOverlayTap else { return }
+                            handleOverlayTap(at: safeIndex)
+                        }
+
+                        if tipVisible, let rect = anchorRect, visible {
+                            tipPopover(
+                                for: current,
+                                anchorRect: rect,
+                                safeAreaInsets: safeArea,
+                                geometry: geometry,
+                                stepIndex: safeIndex
+                            )
+                            .transition(
+                                .opacity.combined(with: .scale(scale: 0.95))
+                            )
+                        }
+
+                        if isScrolling {
+                            ProgressView()
+                                .progressViewStyle(
+                                    CircularProgressViewStyle(tint: .white)
+                                )
+                                .scaleEffect(1.2)
+                                .allowsHitTesting(configuration.isBlocking)
+                                // Announce the in-between state so VoiceOver
+                                // users know the tour hasn't frozen while the
+                                // next target scrolls into view.
+                                .accessibilityLabel("Loading next step")
+                        }
+                    }
+                    .ignoresSafeArea()
+                    // Trap VoiceOver focus inside the overlay. Without this,
+                    // a swipe-right can escape to the nav bar even if we've
+                    // moved focus to the tip.
+                    .accessibilityAddTraits(.isModal)
+                    .onChange(of: tipVisible) { newValue in
+                        if newValue && configuration.dismissWhenOffscreen {
+                            scheduleVisibilityCheck(
+                                anchorRect: anchorRect,
+                                containerSize: geometry.size,
+                                stepIndex: safeIndex
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        .onChange(of: isPresented) { newValue in
+            if newValue {
+                currentIndex = 0
+                scrollToCurrentAnchor()
+            } else {
+                cancelVisibilityCheck()
+                tipVisible = false
+                isTipFocused = false
+            }
+        }
+}
+③ Attach the focus binding in tipPopover(...)
+Inside the TipPositioningContainer { ... } closure, add .accessibilityFocused right after the content view:
+
+swift
+TipPositioningContainer(
+    anchorRect: adj,
+    showBelow: below,
+    spotlightPadding: MDSCoachmarkConstants.spotlightPadding,
+    screenSize: CGSize(width: fullW, height: fullH),
+    safeAreaInsets: safeAreaInsets,
+    safeAreaMargin: MDSCoachmarkConstants.tipSafeAreaMargin,
+    tipCornerRadius: configuration.tipCornerRadius
+) {
+    MDSCoachmarkTipContentView(
+        item: item,
+        stepIndex: stepIndex,
+        totalSteps: items.count,
+        isFirst: stepIndex == 0,
+        isLast: stepIndex == items.count - 1,
+        configuration: configuration,
+        onBack: { goToPrevious() },
+        onNext: { goToNext() },
+        onSkip: { handleSkip(at: stepIndex) },
+        onFinish: { handleFinish() }
+    )
+    // Attach the focus binding at the content root so `notifyAppear()`
+    // can pull VoiceOver here after the tip mounts. Focus resolves to the
+    // first accessible descendant — the combined title/description element
+    // (the icon is hidden from accessibility in the content view).
+    .accessibilityFocused($isTipFocused)
+    .padding(.horizontal, MDSCoachmarkConstants.tipHorizontalPadding)
+    .padding(.vertical, MDSCoachmarkConstants.tipVerticalPadding)
+    .frame(maxWidth: MDSCoachmarkConstants.tipMaxWidth)
+    .padding(.top,    below ? arrowSize : 0)
+    .padding(.bottom, below ? 0 : arrowSize)
+    .background(
+        // ... unchanged ...
+    )
+    .overlay(
+        // ... unchanged ...
+    )
+    .padding(.horizontal, 16)
+}
+.transition(.opacity.combined(with: .scale(scale: 0.95)))
+.id(stepIndex)
+④ Release focus when hiding, request focus when showing
+scrollToCurrentAnchor() — add one line after tipVisible = false:
+
+swift
+private func scrollToCurrentAnchor() {
+    guard currentIndex < items.count else { return }
+
+    cancelVisibilityCheck()
+
+    let current = items[currentIndex]
+    isScrolling = true
+    tipVisible = false
+    // Release the focus binding before the tip is torn down so the
+    // subsequent `isTipFocused = true` in `notifyAppear()` is seen as
+    // a fresh transition rather than a no-op.
+    isTipFocused = false
+
+    // ... rest unchanged ...
+}
+notifyAppear() — replace with:
+
+swift
+private func notifyAppear() {
+    guard currentIndex < items.count else { return }
+    items[currentIndex].onAppearAction?(currentIndex)
+
+    // Move VoiceOver focus to the freshly mounted tip.
+    //
+    // Between steps the tip is removed (`tipVisible = false`) and re-inserted
+    // with a new `.id(stepIndex)`. VoiceOver loses its anchor during that
+    // window and — left alone — jumps to the nav bar's Back button. Setting
+    // `isTipFocused` here pulls focus back once the new view exists.
+    //
+    // The brief delay gives SwiftUI time to commit the new tip into the
+    // accessibility tree; requesting focus before that is a silent no-op.
+    Task { @MainActor in
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 s
+        isTipFocused = true
+        // Fallback: nudge VoiceOver to re-scan the modal overlay in case
+        // the focus-state assignment above raced the view mount.
+        UIAccessibility.post(notification: .layoutChanged, argument: nil)
+    }
+}
+dismiss() — clear focus:
+
+swift
+private func dismiss() {
+    cancelVisibilityCheck()
+    isTipFocused = false
+
+    if MDSCoachmarkConstants.animateTransitions {
+        // ... unchanged ...
+    } else {
+        // ... unchanged ...
+    }
+}
+Changes to MDSCoachMarkTipContentView.swift
+Full replacement (file is small enough):
+
+swift
+import SwiftUI
+
+struct MDSCoachmarkTipContentView: View {
+    let item: MDSCoachmarkItem
+    let stepIndex: Int
+    let totalSteps: Int
+    let isFirst: Bool
+    let isLast: Bool
+    let configuration: MDSCoachmarkConfiguration
+    let onBack: () -> Void
+    let onNext: () -> Void
+    let onSkip: () -> Void
+    let onFinish: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            contentLayout
+            Divider()
+            navigationBar
+        }
+    }
+
+    @ViewBuilder
+    private var contentLayout: some View {
+        switch MDSCoachmarkConstants.tipLayoutStyle {
+        case .horizontal: horizontalLayout
+        case .vertical:   verticalLayout
+        case .textOnly:   textOnlyLayout
+        }
+    }
+
+    @ViewBuilder
+    private var horizontalLayout: some View {
+        HStack(alignment: .top, spacing: 12) {
+            if let iconName = item.iconName { iconView(systemName: iconName) }
+            textContent
+        }
+    }
+
+    @ViewBuilder
+    private var verticalLayout: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let iconName = item.iconName { iconView(systemName: iconName) }
+            textContent
+        }
+    }
+
+    @ViewBuilder
+    private var textOnlyLayout: some View { textContent }
+
+    @ViewBuilder
+    private var textContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(item.title)
+                .font(MDSCoachmarkConstants.titleFont)
+                .foregroundColor(MDSCoachmarkConstants.titleColor)
+                .fixedSize(horizontal: false, vertical: true)
+            if let desc = item.description, !desc.isEmpty {
+                Text(desc)
+                    .font(MDSCoachmarkConstants.descriptionFont)
+                    .foregroundColor(MDSCoachmarkConstants.descriptionColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // Merge title + description into a single VoiceOver element so the
+        // user hears the full message in one pass instead of swiping between
+        // two tiny labels. The step count is prefixed so orientation comes
+        // first ("Step 2 of 5. Settings. Tap here to open…").
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(combinedAccessibilityLabel)
+        // Read this before the step indicator and buttons regardless of
+        // visual layout. The overlay focuses the tip root; sort priority
+        // guarantees this is the first descendant VoiceOver resolves to.
+        .accessibilitySortPriority(10)
+    }
+
+    /// Builds the VoiceOver announcement for the combined title/description
+    /// element: `"Step {n} of {total}. {title}. {description}"`.
+    private var combinedAccessibilityLabel: String {
+        var parts = ["Step \(stepIndex + 1) of \(totalSteps)", item.title]
+        if let desc = item.description, !desc.isEmpty {
+            parts.append(desc)
+        }
+        return parts.joined(separator: ". ")
+    }
+
+    @ViewBuilder
+    private func iconView(systemName: String) -> some View {
+        let color = item.iconColor ?? MDSCoachmarkConstants.defaultIconColor
+        Image(systemName: systemName)
+            .font(.system(size: MDSCoachmarkConstants.defaultIconSize))
+            .foregroundColor(color)
+            .frame(
+                width: MDSCoachmarkConstants.defaultIconSize + 8,
+                height: MDSCoachmarkConstants.defaultIconSize + 8
+            )
+            // Decorative. Hiding it ensures that when the overlay moves
+            // VoiceOver focus to the tip, it resolves to the text content
+            // (sort-priority 10) rather than announcing an SF Symbol name.
+            .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var navigationBar: some View {
+        HStack {
+            Text("\(stepIndex + 1) of \(totalSteps)")
+                .font(MDSCoachmarkConstants.stepIndicatorFont)
+                .foregroundColor(MDSCoachmarkConstants.stepIndicatorColor)
+                // Step count is already prefixed onto the main announcement
+                // above; hide the visual indicator so it isn't read twice.
+                .accessibilityHidden(true)
+
+            Spacer()
+
+            if configuration.showExitButton && !isLast {
+                Button(action: onSkip) {
+                    Text(MDSCoachmarkConstants.exitButtonLabel)
+                        .font(.subheadline)
+                        .foregroundColor(MDSCoachmarkConstants.stepIndicatorColor)
+                }
+                .padding(.trailing, 8)
+                .accessibilityLabel(MDSCoachmarkConstants.exitButtonLabel)
+                .accessibilityHint("Ends the tour")
+            }
+
+            if MDSCoachmarkConstants.showBackButton && !isFirst {
+                Button(action: onBack) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left").font(.caption.bold())
+                        Text(MDSCoachmarkConstants.backButtonLabel)
+                            .font(.subheadline.bold())
+                    }
+                    .foregroundColor(MDSCoachmarkConstants.accentColor)
+                }
+                .padding(.trailing, 4)
+                // Override so VoiceOver reads "Back, button" instead of
+                // "chevron left, Back, button".
+                .accessibilityLabel(MDSCoachmarkConstants.backButtonLabel)
+                .accessibilityHint("Goes to the previous step")
+            }
+
+            Button(action: isLast ? onFinish : onNext) {
+                HStack(spacing: 4) {
+                    Text(
+                        isLast
+                            ? MDSCoachmarkConstants.finishButtonLabel
+                            : MDSCoachmarkConstants.nextButtonLabel
+                    )
+                    .font(.subheadline.bold())
+                    if !isLast {
+                        Image(systemName: "chevron.right").font(.caption.bold())
+                    }
+                }
+                .foregroundColor(isLast ? .white : MDSCoachmarkConstants.accentColor)
+                .padding(.horizontal, isLast ? 16 : 0)
+                .padding(.vertical, isLast ? 6 : 0)
+                .background(
+                    Group {
+                        if isLast {
+                            Capsule().fill(MDSCoachmarkConstants.accentColor)
+                        }
+                    }
+                )
+            }
+            // Strip the decorative chevron from the announcement.
+            .accessibilityLabel(
+                isLast
+                    ? MDSCoachmarkConstants.finishButtonLabel
+                    : MDSCoachmarkConstants.nextButtonLabel
+            )
+            .accessibilityHint(
+                isLast ? "Ends the tour" : "Goes to the next step"
+            )
+        }
+    }
+}
+Result
+With VoiceOver on, tapping Next now produces:
+
+"Step 2 of 5. Profile Settings. Tap here to open your preferences."
+
+(swipe) → "Skip, button. Ends the tour."
+
+(swipe) → "Back, button. Goes to the previous step."
+
+(swipe) → "Next, button. Goes to the next step."
+
+No detour through the nav bar.
