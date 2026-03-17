@@ -2,18 +2,14 @@
 import SwiftUI
 import TipKit
 
-/// One step of a coachmark tour expressed as a TipKit `Tip`.
+/// A single step in a TipKit-powered coachmark tour.
 ///
-/// Tips belong to an ordered ``TipGroup``. The group advances when the
-/// current tip is invalidated via `.actionPerformed`. A static `@Parameter`
-/// gates display so tips stay hidden during scroll transitions.
+/// Each instance carries the display content (title, message, icon) and
+/// navigation metadata (step index, position flags) for one tour step.
+/// Sequencing is managed externally by a `TipGroup(.ordered)` in the
+/// coordinator — the tip itself declares no rules.
 @available(iOS 18.0, *)
 public struct MDSCoachmarkStepTip: Tip {
-
-    /// Global gate. When `false`, all tips in the tour evaluate as
-    /// ineligible and any visible popover dismisses. The coordinator
-    /// toggles this around scroll transitions.
-    @Parameter public static var showCurrent: Bool = false
 
     public let id: String
 
@@ -42,11 +38,8 @@ public struct MDSCoachmarkStepTip: Tip {
     public var message: Text? { stepMessage.map { Text($0) } }
     public var image: Image? { stepImageName.map { Image(systemName: $0) } }
 
-    public var rules: [Rule] {
-        [
-            #Rule(Self.$showCurrent) { $0 == true }
-        ]
-    }
+    /// Empty — `TipGroup(.ordered)` controls which tip is eligible.
+    public var rules: [Rule] { [] }
 
     public var actions: [Action] {
         var result: [Action] = []
@@ -55,13 +48,15 @@ public struct MDSCoachmarkStepTip: Tip {
         result.append(Action(id: "__stepinfo__:\(infoPayload)", title: ""))
 
         if isLast {
-            result.append(Action(id: "done",  title: MDSCoachmarkConstants.finishButtonLabel))
+            result.append(Action(id: "done", title: MDSCoachmarkConstants.finishButtonLabel))
         } else {
-            result.append(Action(id: "next",  title: MDSCoachmarkConstants.nextButtonLabel))
+            result.append(Action(id: "next", title: MDSCoachmarkConstants.nextButtonLabel))
         }
+
         if !isLast {
-            result.append(Action(id: "skip",  title: MDSCoachmarkConstants.exitButtonLabel))
+            result.append(Action(id: "skip", title: MDSCoachmarkConstants.exitButtonLabel))
         }
+
         return result
     }
 

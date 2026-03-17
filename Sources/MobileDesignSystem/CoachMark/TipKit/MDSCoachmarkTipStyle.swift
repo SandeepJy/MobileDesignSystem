@@ -2,8 +2,6 @@
 import SwiftUI
 import TipKit
 
-/// Renders a coachmark tip using the same layout as the legacy overlay,
-/// so both code paths look identical.
 @available(iOS 18.0, *)
 struct MDSCoachmarkTipViewStyle: TipViewStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -20,35 +18,40 @@ private struct MDSCoachmarkTipStyleBody: View {
         MDSTipKitTourCoordinator.current
     }
 
+    /// Extracts step metadata encoded in the hidden `__stepinfo__` action.
+    ///
+    /// Action ID format: `"__stepinfo__:<index>|<total>|<isFirst>|<isLast>"`
     private var stepInfo: MDSTipKitStepInfo {
-        let prefix = "__stepinfo__:"
-        guard let infoAction = configuration.actions.first(where: { $0.id.hasPrefix(prefix) }) else {
-            return MDSTipKitStepInfo(index: 0, total: 1, isFirst: true, isLast: true, showExitButton: true)
+        guard let infoAction = configuration.actions.first(
+            where: { $0.id.hasPrefix("__stepinfo__") }
+        ) else {
+            return MDSTipKitStepInfo(
+                index: 0, total: 1, isFirst: true, isLast: true, showExitButton: true
+            )
         }
 
-        let payload = String(infoAction.id.dropFirst(prefix.count))
-        let components = payload.split(separator: "|")
-        guard components.count == 4,
-              let index = Int(components[0]),
-              let total = Int(components[1]) else {
-            return MDSTipKitStepInfo(index: 0, total: 1, isFirst: true, isLast: true, showExitButton: true)
-        }
+        let payload = String(infoAction.id.dropFirst("__stepinfo__:".count))
+        let parts = payload.split(separator: "|")
 
-        let isFirst = components[2] == "1"
-        let isLast = components[3] == "1"
-        let showExit = coordinator?.configuration.showExitButton ?? true
+        guard parts.count == 4,
+              let index = Int(parts[0]),
+              let total = Int(parts[1]) else {
+            return MDSTipKitStepInfo(
+                index: 0, total: 1, isFirst: true, isLast: true, showExitButton: true
+            )
+        }
 
         return MDSTipKitStepInfo(
             index: index,
             total: total,
-            isFirst: isFirst,
-            isLast: isLast,
-            showExitButton: showExit
+            isFirst: parts[2] == "1",
+            isLast: parts[3] == "1",
+            showExitButton: coordinator?.configuration.showExitButton ?? true
         )
     }
 
     private var visibleActions: [Tip.Action] {
-        configuration.actions.filter { !$0.id.hasPrefix("__stepinfo__:") }
+        configuration.actions.filter { !$0.id.hasPrefix("__stepinfo__") }
     }
 
     var body: some View {

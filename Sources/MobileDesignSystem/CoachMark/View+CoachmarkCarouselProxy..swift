@@ -8,9 +8,10 @@ public extension View {
 
     /// Marks this view as a coachmark anchor.
     ///
-    /// On **every** iOS version it publishes anchor geometry.
-    /// On **iOS 18+** it also attaches a TipKit popover when this
-    /// step is current. The consumer never writes a version check.
+    /// On **every** iOS version it publishes anchor geometry via
+    /// `MDSCoachmarkAnchorPreferenceKey`. On **iOS 18+** it also
+    /// attaches a TipKit `.popoverTip()` when the tour is active.
+    /// On older targets the legacy overlay handles tooltip rendering.
     func coachmarkAnchor(_ id: String) -> some View {
         self
             .id(id)
@@ -23,8 +24,10 @@ public extension View {
 
     /// Presents the coachmark tour.
     ///
-    /// Internally dispatches to TipKit (iOS 18+) or the legacy custom
-    /// overlay (iOS 15–17).
+    /// | OS Version | Implementation |
+    /// |---|---|
+    /// | iOS 15–17.x | Legacy custom overlay (full back-navigation) |
+    /// | iOS 18+ | TipKit `TipGroup(.ordered)` overlay |
     func coachmarkOverlay(
         isPresented: Binding<Bool>,
         configuration: MDSCoachmarkConfiguration = MDSCoachmarkConfiguration(),
@@ -45,7 +48,7 @@ public extension View {
         )
     }
 
-    // MARK: Scroll-proxy helpers (API unchanged)
+    // MARK: Scroll-proxy helpers
 
     func coachmarkScrollableProxy(
         _ name: String,
@@ -137,8 +140,9 @@ private struct MDSCoachmarkUnifiedOverlayModifier: ViewModifier {
 // MARK: - Anchor TipKit Bridge (all-iOS shell)
 // ═══════════════════════════════════════════════════════════════════
 
-/// Applied by every `.coachmarkAnchor()` call. On iOS 18+ it hands off
-/// to the TipKit popover layer. On older targets it is a no-op.
+/// Applied by every `.coachmarkAnchor()` call. On iOS 18+ it attaches
+/// a `.popoverTip()` driven by the `TipGroup`. On older targets it is
+/// a no-op — the legacy overlay handles tooltip rendering directly.
 private struct MDSCoachmarkAnchorTipKitBridge: ViewModifier {
 
     let anchorID: String
@@ -169,8 +173,6 @@ private struct MDSCoachmarkAnchorTipKitBridge: ViewModifier {
 #if canImport(TipKit)
 import TipKit
 
-/// Resolves the coordinator reference and hands off to the popover
-/// modifier so it can observe published changes.
 @available(iOS 18.0, *)
 private struct MDSTipKitAnchorConnector: ViewModifier {
 
@@ -189,25 +191,27 @@ private struct MDSTipKitAnchorConnector: ViewModifier {
     }
 }
 
-/// Attaches the `TipGroup`'s current tip to this anchor when this anchor
-/// is the active step. The group handles ordering; the `showCurrent`
-/// rule handles hide-during-scroll; the `isActiveAnchor` check ensures
-/// the popover appears on the correct view.
+/// Attaches `.popoverTip()` when the tour is active and `tipReady` is
+/// `true`. The `TipGroup(.ordered)` decides which tip is eligible — only
+/// the current group tip will present its popover.
+///
+/// Gating on `tipReady` lets the coordinator remove all popovers during
+/// scroll transitions (by setting `tipReady = false`), then re-attach
+/// them after the scroll settles and the previous tip is invalidated.
 @available(iOS 18.0, *)
 private struct MDSTipKitAnchorPopover: ViewModifier {
 
     let anchorID: String
     @ObservedObject var coordinator: MDSTipKitTourCoordinator
 
-    private var isActiveAnchor: Bool {
-        coordinator.isActive
-            && coordinator.currentItem?.id == anchorID
-    }
-
     func body(content: Content) -> some View {
-        if isActiveAnchor, let group = coordinator.tipGroup {
+        let _ = print("debug: coordinator is active \(coordinator.isActive), tipReady \(coordinator.tipReady), tip: \(coordinator.tip(forAnchor: anchorID)?.id ?? "nil")")
+        if coordinator.isActive,
+           coordinator.tipReady,
+           let tip = coordinator.tip(forAnchor: anchorID) {
+            let _ = print ("in MDStipkitanchorpopover")
             content
-                .popoverTip(group.currentTip, arrowEdge: .bottom)
+                .popoverTip(tip, arrowEdge: .bottom)
         } else {
             content
         }

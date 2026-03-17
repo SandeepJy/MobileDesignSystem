@@ -4,8 +4,6 @@ import SwiftUI
 // MARK: - Environment Plumbing (compiles on every deployment target)
 // ═══════════════════════════════════════════════════════════════════
 
-/// Sendable box that ferries the iOS-18-only coordinator through
-/// SwiftUI's environment without exposing a non-Sendable `AnyObject?`.
 struct MDSCoachmarkCoordinatorBox: @unchecked Sendable {
     let ref: AnyObject?
     static let empty = MDSCoachmarkCoordinatorBox(ref: nil)
@@ -15,8 +13,6 @@ struct MDSTipKitCoordinatorKey: EnvironmentKey {
     static let defaultValue = MDSCoachmarkCoordinatorBox.empty
 }
 
-/// Step metadata consumed by the custom ``MDSCoachmarkTipViewStyle``
-/// so it can render the step indicator and correct button set.
 struct MDSTipKitStepInfo: Sendable {
     let index: Int
     let total: Int
@@ -57,7 +53,6 @@ public enum MDSTipKitSetup {
     /// so tip state is never persisted across launches.
     public static func configureIfNeeded() {
         guard !isConfigured else { return }
-        isConfigured = true
         do {
             try Tips.configure([
                 .datastoreLocation(
@@ -66,11 +61,16 @@ public enum MDSTipKitSetup {
                 )
             ])
         } catch { /* already configured by host app */ }
+        isConfigured = true
     }
 
-    /// Wipes all display / invalidation records so a fresh tour can start.
+    /// Wipes all display / invalidation records and re-establishes the
+    /// TipKit configuration so that previously invalidated tips in a
+    /// `TipGroup` are eligible again on the next tour start.
     public static func resetDatastore() {
         try? Tips.resetDatastore()
+        isConfigured = false
+        configureIfNeeded()
     }
 }
 #endif

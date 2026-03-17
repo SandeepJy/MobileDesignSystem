@@ -2,10 +2,10 @@
 import SwiftUI
 import TipKit
 
-/// iOS 18+ overlay: injects the coordinator into the environment,
-/// applies the custom ``MDSCoachmarkTipViewStyle``, and draws the
-/// spotlight canvas. Individual anchors read the coordinator and
-/// attach `.popoverTip(group.currentTip)` when they are the active step.
+/// iOS 18+ overlay that manages the `TipGroup`-based tour, injects
+/// the coordinator into the environment, applies the custom tip style,
+/// and draws the spotlight canvas. Individual anchors read the
+/// coordinator and conditionally attach `.popoverTip()`.
 @available(iOS 18.0, *)
 struct MDSTipKitOverlayModifier: ViewModifier {
 
@@ -22,6 +22,7 @@ struct MDSTipKitOverlayModifier: ViewModifier {
         content
             .environment(\.mdsTipKitCoordinator,
                          MDSCoachmarkCoordinatorBox(ref: coordinator))
+            .environment(\.mdsTipKitStepInfo, coordinator.currentStepInfo)
             .tipViewStyle(MDSCoachmarkTipViewStyle())
             .overlayPreferenceValue(MDSCoachmarkAnchorPreferenceKey.self) { anchors in
                 spotlightOverlay(anchors: anchors)
